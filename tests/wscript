@@ -24,6 +24,17 @@ def build(bld):
         install_path=None,
         )
 
+    unit_tests_pib = bld(
+        target="unit-test-pib-objects",
+        name="unit-test-pib-objects",
+        features="cxx",
+        source=bld.path.ant_glob(['unit-tests-pib/**/*.cpp'],
+                                 excl=['**/*-osx.cpp', '**/*-sqlite3.cpp']),
+        use='tests-base pib-objects',
+        includes='. ..',
+        install_path=None,
+        )
+
     integrated = bld(
         target="integrated-test-objects",
         name="integrated-test-objects",
@@ -35,13 +46,13 @@ def build(bld):
         install_path=None,
         )
 
-    if bld.env['HAVE_OSX_SECURITY']:
-        unit_tests.source += bld.path.ant_glob('unit-tests/**/*-osx.cpp')
-        integrated.source += bld.path.ant_glob('integrated/**/*-osx.cpp')
-
-    # In case we want to make it optional later
-    unit_tests.source += bld.path.ant_glob('unit-tests/**/*-sqlite3.cpp')
-    integrated.source += bld.path.ant_glob('integrated/**/*-sqlite3.cpp')
+    objects = [(unit_tests, 'unit-tests'),
+                (unit_tests_pib, 'unit-tests-pib'),
+                (integrated, 'integrated')]
+    for object in objects:
+        if bld.env['HAVE_OSX_SECURITY']:
+            object[0].source += bld.path.ant_glob(object[1] + '/**/*-osx.cpp')
+        object[0].source += bld.path.ant_glob(object[1] + '/**/*-sqlite3.cpp')
 
     unit_test_main = bld(
         target='unit-tests-main',
@@ -54,6 +65,11 @@ def build(bld):
     bld(features="cxx cxxprogram",
         target="../unit-tests",
         use="unit-test-objects unit-tests-main",
+        install_path=None)
+
+    bld(features="cxx cxxprogram",
+        target="../unit-tests-pib",
+        use="unit-test-pib-objects unit-tests-main",
         install_path=None)
 
     bld(features="cxx cxxprogram",

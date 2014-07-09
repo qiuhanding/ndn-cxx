@@ -179,6 +179,9 @@ def build(bld):
          EXTRA_FRAMEWORKS=EXTRA_FRAMEWORKS,
         )
 
+    # PIB service
+    bld.recurse('pib')
+
     # Unit tests
     if bld.env['WITH_TESTS']:
         bld.recurse('tests')

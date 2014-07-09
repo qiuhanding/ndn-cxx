@@ -1,0 +1,22 @@
+# -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
+
+from waflib import Utils
+
+top = '..'
+
+def build(bld):
+    pib_obj = bld(
+        features=['cxx'],
+        name="pib-objects",
+        target="pib-objects",
+        source=bld.path.ant_glob('**/*.cpp', excl=['ndn-pib.cpp']),
+        use='ndn-cxx',
+        install_path=None,
+        )
+
+
+    bld(features=['cxx', 'cxxprogram'],
+        target='ndn-pib',
+        source='ndn-pib.cpp',
+        use='pib-objects',
+        )
