@@ -20,9 +20,14 @@
  */
 
 #include "default-param.hpp"
+#include "encoding/block-helpers.hpp"
+#include <boost/lexical_cast.hpp>
 
 namespace ndn {
 namespace pib {
+
+static_assert(std::is_base_of<tlv::Error, DefaultParam::Error>::value,
+              "DefaultParam::Error must inherit from tlv::Error");
 
 DefaultParam::DefaultParam()
   : m_targetType(TYPE_DEFAULT)

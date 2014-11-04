@@ -20,9 +20,14 @@
  */
 
 #include "update-param.hpp"
+#include "encoding/block-helpers.hpp"
+#include <boost/lexical_cast.hpp>
 
 namespace ndn {
 namespace pib {
+
+static_assert(std::is_base_of<tlv::Error, UpdateParam::Error>::value,
+              "UpdateParam::Error must inherit from tlv::Error");
 
 UpdateParam::UpdateParam()
   : m_defaultOpt(DEFAULT_OPT_NO)

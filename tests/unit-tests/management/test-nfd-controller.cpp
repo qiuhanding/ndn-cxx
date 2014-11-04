@@ -22,14 +22,16 @@
 #include "management/nfd-controller.hpp"
 #include "management/nfd-control-response.hpp"
 
-#include "../transport/dummy-face.hpp"
-
 #include <boost/tuple/tuple.hpp>
 
 #include "boost-test.hpp"
+#include "../dummy-client-face.hpp"
 
 namespace ndn {
 namespace nfd {
+namespace tests {
+
+using namespace ::ndn::tests;
 
 BOOST_AUTO_TEST_SUITE(ManagementTestNfdController)
 
@@ -37,7 +39,7 @@ class CommandFixture
 {
 protected:
   CommandFixture()
-    : face(makeDummyFace())
+    : face(makeDummyClientFace())
     , controller(*face)
     , commandSucceedCallback(bind(&CommandFixture::onCommandSucceed, this, _1))
     , commandFailCallback(bind(&CommandFixture::onCommandFail, this, _1, _2))
@@ -58,7 +60,7 @@ private:
   }
 
 protected:
-  shared_ptr<DummyFace> face;
+  shared_ptr<DummyClientFace> face;
   Controller controller;
   KeyChain keyChain;
 
@@ -74,27 +76,27 @@ protected:
 BOOST_FIXTURE_TEST_CASE(CommandSuccess, CommandFixture)
 {
   ControlParameters parameters;
-  parameters.setUri("tcp://example.com");
+  parameters.setUri("tcp4://192.0.2.1:6363");
 
   BOOST_CHECK_NO_THROW(controller.start<FaceCreateCommand>(
-                         parameters,
-                         commandSucceedCallback,
-                         commandFailCallback));
+                       parameters,
+                       commandSucceedCallback,
+                       commandFailCallback));
   face->processEvents(time::milliseconds(1));
 
   BOOST_REQUIRE_EQUAL(face->m_sentInterests.size(), 1);
-  const Interest& commandInterest = face->m_sentInterests[0];
+  const Interest& requestInterest = face->m_sentInterests[0];
 
   FaceCreateCommand command;
-  BOOST_CHECK(command.getPrefix().isPrefixOf(commandInterest.getName()));
-  // 9 components: ndn:/localhost/nfd/face/create/<parameters>/<command Interest signature x4>
-  BOOST_REQUIRE_EQUAL(commandInterest.getName().size(), 9);
+  BOOST_CHECK(Name("/localhost/nfd/faces/create").isPrefixOf(requestInterest.getName()));
+  // 9 components: ndn:/localhost/nfd/faces/create/<parameters>/<signed Interest x4>
+  BOOST_REQUIRE_EQUAL(requestInterest.getName().size(), 9);
   ControlParameters request;
   // 4th component: <parameters>
-  BOOST_REQUIRE_NO_THROW(request.wireDecode(commandInterest.getName().at(4).blockFromValue()));
+  BOOST_REQUIRE_NO_THROW(request.wireDecode(requestInterest.getName().at(4).blockFromValue()));
   BOOST_CHECK_NO_THROW(command.validateRequest(request));
   BOOST_CHECK_EQUAL(request.getUri(), parameters.getUri());
-  BOOST_CHECK_EQUAL(commandInterest.getInterestLifetime(), Controller::getDefaultCommandTimeout());
+  BOOST_CHECK_EQUAL(requestInterest.getInterestLifetime(), Controller::getDefaultCommandTimeout());
 
   ControlParameters responseBody;
   responseBody.setUri("tcp4://192.0.2.1:6363")
@@ -102,7 +104,7 @@ BOOST_FIXTURE_TEST_CASE(CommandSuccess, CommandFixture)
   ControlResponse responsePayload(201, "created");
   responsePayload.setBody(responseBody.wireEncode());
 
-  Data responseData(commandInterest.getName());
+  Data responseData(requestInterest.getName());
   responseData.setContent(responsePayload.wireEncode());
   keyChain.sign(responseData);
   face->receive(responseData);
@@ -131,7 +133,7 @@ BOOST_FIXTURE_TEST_CASE(CommandInvalidRequest, CommandFixture)
 BOOST_FIXTURE_TEST_CASE(CommandErrorCode, CommandFixture)
 {
   ControlParameters parameters;
-  parameters.setUri("tcp://example.com");
+  parameters.setUri("tcp4://192.0.2.1:6363");
 
   BOOST_CHECK_NO_THROW(controller.start<FaceCreateCommand>(
                          parameters,
@@ -140,11 +142,11 @@ BOOST_FIXTURE_TEST_CASE(CommandErrorCode, CommandFixture)
   face->processEvents(time::milliseconds(1));
 
   BOOST_REQUIRE_EQUAL(face->m_sentInterests.size(), 1);
-  const Interest& commandInterest = face->m_sentInterests[0];
+  const Interest& requestInterest = face->m_sentInterests[0];
 
   ControlResponse responsePayload(401, "Not Authenticated");
 
-  Data responseData(commandInterest.getName());
+  Data responseData(requestInterest.getName());
   responseData.setContent(responsePayload.wireEncode());
   keyChain.sign(responseData);
   face->receive(responseData);
@@ -158,7 +160,7 @@ BOOST_FIXTURE_TEST_CASE(CommandErrorCode, CommandFixture)
 BOOST_FIXTURE_TEST_CASE(CommandInvalidResponse, CommandFixture)
 {
   ControlParameters parameters;
-  parameters.setUri("tcp://example.com");
+  parameters.setUri("tcp4://192.0.2.1:6363");
 
   BOOST_CHECK_NO_THROW(controller.start<FaceCreateCommand>(
                          parameters,
@@ -167,7 +169,7 @@ BOOST_FIXTURE_TEST_CASE(CommandInvalidResponse, CommandFixture)
   face->processEvents(time::milliseconds(1));
 
   BOOST_REQUIRE_EQUAL(face->m_sentInterests.size(), 1);
-  const Interest& commandInterest = face->m_sentInterests[0];
+  const Interest& requestInterest = face->m_sentInterests[0];
 
   ControlParameters responseBody;
   responseBody.setUri("tcp4://192.0.2.1:6363")
@@ -176,7 +178,7 @@ BOOST_FIXTURE_TEST_CASE(CommandInvalidResponse, CommandFixture)
   ControlResponse responsePayload(201, "created");
   responsePayload.setBody(responseBody.wireEncode());
 
-  Data responseData(commandInterest.getName());
+  Data responseData(requestInterest.getName());
   responseData.setContent(responsePayload.wireEncode());
   keyChain.sign(responseData);
   face->receive(responseData);
@@ -186,7 +188,51 @@ BOOST_FIXTURE_TEST_CASE(CommandInvalidResponse, CommandFixture)
   BOOST_REQUIRE_EQUAL(commandFailHistory.size(), 1);
 }
 
+BOOST_FIXTURE_TEST_CASE(OptionsPrefix, CommandFixture)
+{
+  ControlParameters parameters;
+  parameters.setName("/ndn/com/example");
+  parameters.setFaceId(400);
+
+  CommandOptions options;
+  options.setPrefix("/localhop/net/example/router1/nfd");
+
+  BOOST_CHECK_NO_THROW(controller.start<RibRegisterCommand>(
+                       parameters,
+                       commandSucceedCallback,
+                       commandFailCallback,
+                       options));
+  face->processEvents(time::milliseconds(1));
+
+  BOOST_REQUIRE_EQUAL(face->m_sentInterests.size(), 1);
+  const Interest& requestInterest = face->m_sentInterests[0];
+
+  FaceCreateCommand command;
+  BOOST_CHECK(Name("/localhop/net/example/router1/nfd/rib/register").isPrefixOf(
+              requestInterest.getName()));
+}
+
+BOOST_FIXTURE_TEST_CASE(OptionsTimeout, CommandFixture)
+{
+  ControlParameters parameters;
+  parameters.setUri("tcp4://192.0.2.1:6363");
+
+  CommandOptions options;
+  options.setTimeout(time::milliseconds(50));
+
+  BOOST_CHECK_NO_THROW(controller.start<FaceCreateCommand>(
+                       parameters,
+                       commandSucceedCallback,
+                       commandFailCallback,
+                       options));
+  face->processEvents(time::milliseconds(300));
+
+  BOOST_REQUIRE_EQUAL(commandFailHistory.size(), 1);
+  BOOST_CHECK_EQUAL(commandFailHistory[0].get<0>(), Controller::ERROR_TIMEOUT);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
+} // namespace tests
 } // namespace nfd
 } // namespace ndn

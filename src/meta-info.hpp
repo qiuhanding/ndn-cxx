@@ -22,35 +22,63 @@
 #ifndef NDN_META_INFO_HPP
 #define NDN_META_INFO_HPP
 
+#include "common.hpp"
+#include "encoding/block.hpp"
 #include "encoding/encoding-buffer.hpp"
+#include "util/time.hpp"
+#include "name-component.hpp"
+#include <list>
 
 namespace ndn {
 
 /**
  * An MetaInfo holds the meta info which is signed inside the data packet.
+ *
+ * The class allows experimentation with application-defined meta information blocks,
+ * which slightly violates NDN-TLV specification.  When using the application-defined
+ * meta information blocks be aware that this may result in packet drop (NFD and
+ * previous versions of ndn-cxx will gracefully accept such packet).
+ *
+ * The following definition of MetaInfo block is assumed in this implementation (compared
+ * to the NDN-TLV spec, definition extended to allow optional AppMetaInfo TLV blocks):
+ *
+ *     MetaInfo ::= META-INFO-TYPE TLV-LENGTH
+ *                    ContentType?
+ *                    FreshnessPeriod?
+ *                    FinalBlockId?
+ *                    AppMetaInfo*
+ *
+ *     AppMetaInfo ::= any TLV block with type in the restricted application range [128, 252]
+ *
+ * Note that AppMetaInfo blocks are application-defined and must have TLV type from
+ * the restricted application range [128, 252].
  */
 class MetaInfo
 {
 public:
+  class Error : public tlv::Error
+  {
+  public:
+    explicit
+    Error(const std::string& what)
+      : tlv::Error(what)
+    {
+    }
+  };
+
   enum {
     TYPE_DEFAULT = 0,
     TYPE_LINK = 1,
     TYPE_KEY = 2
   };
 
-  MetaInfo()
-    : m_type(TYPE_DEFAULT)
-    , m_freshnessPeriod(-1)
-  {
-  }
+  MetaInfo();
 
   /**
    * @brief Create from wire encoding
    */
-  MetaInfo(const Block& block)
-  {
-    wireDecode(block);
-  }
+  explicit
+  MetaInfo(const Block& block);
 
   template<bool T>
   size_t
@@ -66,178 +94,142 @@ public:
   // Getters/setters
 
   uint32_t
-  getType() const
-  {
-    return m_type;
-  }
+  getType() const;
 
   MetaInfo&
-  setType(uint32_t type)
-  {
-    m_wire.reset();
-    m_type = type;
-    return *this;
-  }
+  setType(uint32_t type);
 
   const time::milliseconds&
-  getFreshnessPeriod() const
-  {
-    return m_freshnessPeriod;
-  }
+  getFreshnessPeriod() const;
 
   MetaInfo&
-  setFreshnessPeriod(const time::milliseconds& freshnessPeriod)
-  {
-    m_wire.reset();
-    m_freshnessPeriod = freshnessPeriod;
-    return *this;
-  }
+  setFreshnessPeriod(const time::milliseconds& freshnessPeriod);
 
   const name::Component&
-  getFinalBlockId() const
-  {
-    return m_finalBlockId;
-  }
+  getFinalBlockId() const;
 
   MetaInfo&
-  setFinalBlockId(const name::Component& finalBlockId)
-  {
-    m_wire.reset();
-    m_finalBlockId = finalBlockId;
-    return *this;
-  }
+  setFinalBlockId(const name::Component& finalBlockId);
+
+  /**
+   * @brief Get all app-defined MetaInfo items
+   *
+   * @note Warning: Experimental API, which may change or disappear in the future
+   *
+   * @note If MetaInfo is decoded from wire and setType, setFreshnessPeriod, or setFinalBlockId
+   *       is called before *AppMetaInfo, all app-defined blocks will be lost
+   */
+  const std::list<Block>&
+  getAppMetaInfo() const;
+
+  /**
+   * @brief Set app-defined MetaInfo items
+   *
+   * This method will replace all existing app-defined MetaInfo items, if they existed.
+   *
+   * @throw Error if some block in @p info has type not in the application range
+   *              (http://named-data.net/doc/ndn-tlv/types.html)
+   *
+   * @note Warning: Experimental API, which may change or disappear in the future
+   *
+   * @note If MetaInfo is decoded from wire and setType, setFreshnessPeriod, or setFinalBlockId
+   *       is called before *AppMetaInfo, all app-defined blocks will be lost
+   */
+  MetaInfo&
+  setAppMetaInfo(const std::list<Block>& info);
+
+  /**
+   * @brief Add an app-defined MetaInfo item
+   *
+   * @throw Error if @p block has type not in the application range
+   *              (http://named-data.net/doc/ndn-tlv/types.html)
+   *
+   * @note Warning: Experimental API, which may change or disappear in the future
+   *
+   * @note If MetaInfo is decoded from wire and setType, setFreshnessPeriod, or setFinalBlockId
+   *       is called before *AppMetaInfo, all app-defined blocks will be lost
+   */
+  MetaInfo&
+  addAppMetaInfo(const Block& block);
+
+  /**
+   * @brief Remove a first app-defined MetaInfo item with type @p tlvType
+   *
+   * @return true if an item was deleted
+   *
+   * @note Warning: Experimental API, which may change or disappear in the future
+   *
+   * @note If MetaInfo is decoded from wire and setType, setFreshnessPeriod, or setFinalBlockId
+   *       is called before *AppMetaInfo, all app-defined blocks will be lost
+   */
+  bool
+  removeAppMetaInfo(uint32_t tlvType);
+
+  /**
+   * @brief Find a first app-defined MetaInfo item of type @p tlvType
+   *
+   * @return NULL if an item is not found, otherwise const pointer to the item
+   *
+   * @throw Error if @p tlvType is not in the application range
+   *              (http://named-data.net/doc/ndn-tlv/types.html)
+   *
+   * @note Warning: Experimental API, which may change or disappear in the future
+   *
+   * @note If MetaInfo is decoded from wire and setType, setFreshnessPeriod, or setFinalBlockId
+   *       is called before *AppMetaInfo, all app-defined blocks will be lost
+   */
+  const Block*
+  findAppMetaInfo(uint32_t tlvType) const;
 
 public: // EqualityComparable concept
   bool
-  operator==(const MetaInfo& other) const
-  {
-    return wireEncode() == other.wireEncode();
-  }
+  operator==(const MetaInfo& other) const;
 
   bool
-  operator!=(const MetaInfo& other) const
-  {
-    return !(*this == other);
-  }
+  operator!=(const MetaInfo& other) const;
 
 private:
   uint32_t m_type;
   time::milliseconds m_freshnessPeriod;
   name::Component m_finalBlockId;
+  std::list<Block> m_appMetaInfo;
 
   mutable Block m_wire;
 };
 
-template<bool T>
-inline size_t
-MetaInfo::wireEncode(EncodingImpl<T>& blk) const
+std::ostream&
+operator<<(std::ostream& os, const MetaInfo& info);
+
+/////////////////////////////////////////////////////////////////////////
+
+inline uint32_t
+MetaInfo::getType() const
 {
-  // MetaInfo ::= META-INFO-TYPE TLV-LENGTH
-  //                ContentType?
-  //                FreshnessPeriod?
-  //                FinalBlockId?
-
-  size_t totalLength = 0;
-
-  // FinalBlockId
-  if (!m_finalBlockId.empty())
-    {
-      totalLength += prependNestedBlock(blk, Tlv::FinalBlockId, m_finalBlockId);
-    }
-
-  // FreshnessPeriod
-  if (m_freshnessPeriod >= time::milliseconds::zero())
-    {
-      totalLength += prependNonNegativeIntegerBlock(blk, Tlv::FreshnessPeriod,
-                                                    m_freshnessPeriod.count());
-    }
-
-  // ContentType
-  if (m_type != TYPE_DEFAULT)
-    {
-      totalLength += prependNonNegativeIntegerBlock(blk, Tlv::ContentType, m_type);
-    }
-
-  totalLength += blk.prependVarNumber(totalLength);
-  totalLength += blk.prependVarNumber(Tlv::MetaInfo);
-  return totalLength;
+  return m_type;
 }
 
-inline const Block&
-MetaInfo::wireEncode() const
+inline const time::milliseconds&
+MetaInfo::getFreshnessPeriod() const
 {
-  if (m_wire.hasWire())
-    return m_wire;
-
-  EncodingEstimator estimator;
-  size_t estimatedSize = wireEncode(estimator);
-
-  EncodingBuffer buffer(estimatedSize, 0);
-  wireEncode(buffer);
-
-  m_wire = buffer.block();
-  return m_wire;
+  return m_freshnessPeriod;
 }
 
-inline void
-MetaInfo::wireDecode(const Block& wire)
+inline const name::Component&
+MetaInfo::getFinalBlockId() const
 {
-  m_wire = wire;
-  m_wire.parse();
-
-  // MetaInfo ::= META-INFO-TYPE TLV-LENGTH
-  //                ContentType?
-  //                FreshnessPeriod?
-
-  // ContentType
-  Block::element_const_iterator val = m_wire.find(Tlv::ContentType);
-  if (val != m_wire.elements().end())
-    {
-      m_type = readNonNegativeInteger(*val);
-    }
-  else
-    m_type = TYPE_DEFAULT;
-
-  // FreshnessPeriod
-  val = m_wire.find(Tlv::FreshnessPeriod);
-  if (val != m_wire.elements().end())
-    {
-      m_freshnessPeriod = time::milliseconds(readNonNegativeInteger(*val));
-    }
-  else
-    m_freshnessPeriod = time::milliseconds::min();
-
-  // FinalBlockId
-  val = m_wire.find(Tlv::FinalBlockId);
-  if (val != m_wire.elements().end())
-    {
-      m_finalBlockId = val->blockFromValue();
-      if (m_finalBlockId.type() != Tlv::NameComponent)
-        {
-          /// @todo May or may not throw exception later...
-          m_finalBlockId.reset();
-        }
-    }
-  else
-    m_finalBlockId.reset();
+  return m_finalBlockId;
 }
 
-inline std::ostream&
-operator<<(std::ostream& os, const MetaInfo& info)
+inline bool
+MetaInfo::operator==(const MetaInfo& other) const
 {
-  // ContentType
-  os << "ContentType: " << info.getType();
+  return wireEncode() == other.wireEncode();
+}
 
-  // FreshnessPeriod
-  if (info.getFreshnessPeriod() >= time::milliseconds::zero()) {
-    os << ", FreshnessPeriod: " << info.getFreshnessPeriod();
-  }
-
-  if (!info.getFinalBlockId().empty()) {
-    os << ", FinalBlockId: ";
-    info.getFinalBlockId().toUri(os);
-  }
-  return os;
+inline bool
+MetaInfo::operator!=(const MetaInfo& other) const
+{
+  return !(*this == other);
 }
 
 } // namespace ndn

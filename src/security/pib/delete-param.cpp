@@ -20,9 +20,14 @@
  */
 
 #include "delete-param.hpp"
+#include "encoding/block-helpers.hpp"
+#include <boost/lexical_cast.hpp>
 
 namespace ndn {
 namespace pib {
+
+static_assert(std::is_base_of<tlv::Error, DeleteParam::Error>::value,
+              "DeleteParam::Error must inherit from tlv::Error");
 
 DeleteParam::DeleteParam()
   : m_targetType(TYPE_DEFAULT)
@@ -102,7 +107,7 @@ DeleteParam::wireDecode(const Block& wire)
     throw Error("DeleteParam requires the first sub-TLV to be Type");
 
   // the second block must be Name
-  if (it != m_wire.elements_end() && it->type() == Tlv::Name) {
+  if (it != m_wire.elements_end() && it->type() == tlv::Name) {
     m_targetName.wireDecode(*it);
     it++;
   }

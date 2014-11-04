@@ -20,9 +20,14 @@
  */
 
 #include "list-param.hpp"
+#include "encoding/block-helpers.hpp"
+#include <boost/lexical_cast.hpp>
 
 namespace ndn {
 namespace pib {
+
+static_assert(std::is_base_of<tlv::Error, ListParam::Error>::value,
+              "ListParam::Error must inherit from tlv::Error");
 
 ListParam::ListParam()
   : m_originType(TYPE_USER)

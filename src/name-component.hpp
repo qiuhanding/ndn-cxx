@@ -28,12 +28,21 @@
 
 #include "common.hpp"
 #include "encoding/block.hpp"
-#include "encoding/block-helpers.hpp"
-#include "encoding/encoding-buffer.hpp"
-#include "util/string-helper.hpp"
+#include "util/time.hpp"
 
 namespace ndn {
 namespace name {
+
+/// @brief Segment marker for NDN naming conventions
+static const uint8_t SEGMENT_MARKER = 0x00;
+/// @brief Segment offset marker for NDN naming conventions
+static const uint8_t SEGMENT_OFFSET_MARKER = 0xFB;
+/// @brief Version marker for NDN naming conventions
+static const uint8_t VERSION_MARKER = 0xFD;
+/// @brief Timestamp marker for NDN naming conventions
+static const uint8_t TIMESTAMP_MARKER = 0xFC;
+/// @brief Sequence number marker for NDN naming conventions
+static const uint8_t SEQUENCE_NUMBER_MARKER = 0xFE;
 
 /**
  * @brief Component holds a read-only name component value.
@@ -62,8 +71,8 @@ public:
   /**
    * @brief Create name::Component from a wire block
    *
-   * @param wire Tlv::NameComponent Block from which to create name::Component
-   * @throws Error if wire.type() is not Tlv::NameComponent
+   * @param wire tlv::NameComponent Block from which to create name::Component
+   * @throws Error if wire.type() is not tlv::NameComponent
    *
    * Any block can be implicitly converted to name::Component
    */
@@ -74,7 +83,7 @@ public:
    *
    * @param buffer A pointer to an immutable buffer
    *
-   * This constructor will create a new Tlv::NameComponent Block with `buffer` as a payload.
+   * This constructor will create a new tlv::NameComponent Block with `buffer` as a payload.
    * Note that this method **will not** allocate new memory for and copy the payload until
    * toWire() method is called.
    */
@@ -85,7 +94,7 @@ public:
    * @brief Create a new name::Component from the buffer (data from buffer will be copied)
    * @param buffer A reference to the buffer
    *
-   * This constructor will create a new Tlv::NameComponent Block with `buffer` as a payload.
+   * This constructor will create a new tlv::NameComponent Block with `buffer` as a payload.
    * Note that this method **will** allocate new memory for and copy the payload.
    */
   explicit
@@ -96,7 +105,7 @@ public:
    * @param buffer     A pointer to the first byte of the buffer
    * @param bufferSize Size of the buffer
    *
-   * This constructor will create a new Tlv::NameComponent Block with `buffer` as a payload.
+   * This constructor will create a new tlv::NameComponent Block with `buffer` as a payload.
    * Note that this method **will** allocate new memory for and copy the payload.
    */
   Component(const uint8_t* buffer, size_t bufferSize);
@@ -106,7 +115,7 @@ public:
    * @param begin Iterator pointing to the beginning of the buffer
    * @param end   Iterator pointing to the ending of the buffer
    *
-   * This constructor will create a new Tlv::NameComponent Block with `buffer` as a payload.
+   * This constructor will create a new tlv::NameComponent Block with `buffer` as a payload.
    * Note that this method **will** allocate new memory for and copy the payload.
    */
   template<class InputIterator>
@@ -118,7 +127,7 @@ public:
    * @param str Zero-ended string.  Note that this string will be interpreted as is (i.e.,
    *            it will not be interpreted as URI)
    *
-   * This constructor will create a new Tlv::NameComponent Block with `buffer` as a payload.
+   * This constructor will create a new tlv::NameComponent Block with `buffer` as a payload.
    * Note that this method **will** allocate new memory for and copy the payload.
    */
   explicit
@@ -130,7 +139,7 @@ public:
    * @param str Const reference to STL string.  Note that this string will be interpreted
    *            as is (i.e., it will not be interpreted as URI)
    *
-   * This constructor will create a new Tlv::NameComponent Block with `buffer` as a payload.
+   * This constructor will create a new tlv::NameComponent Block with `buffer` as a payload.
    * Note that this method **will** allocate new memory for and copy the payload.
    */
   explicit
@@ -180,7 +189,7 @@ public:
   static Component
   fromEscapedString(const char* escapedString)
   {
-    return fromEscapedString(escapedString, 0, ::strlen(escapedString));
+    return fromEscapedString(escapedString, 0, std::char_traits<char>::length(escapedString));
   }
 
   /**
@@ -244,12 +253,60 @@ public:
    * @return The escaped string
    */
   std::string
-  toUri() const
-  {
-    std::ostringstream os;
-    toUri(os);
-    return os.str();
-  }
+  toUri() const;
+
+  ////////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * @brief Check if the component is nonNegativeInteger
+   * @see http://named-data.net/doc/ndn-tlv/tlv.html#non-negative-integer-encoding
+   */
+  bool
+  isNumber() const;
+
+  /**
+   * @brief Check if the component is NameComponentWithMarker per NDN naming conventions
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   */
+  bool
+  isNumberWithMarker(uint8_t marker) const;
+
+  /**
+   * @brief Check if the component is version per NDN naming conventions
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   */
+  bool
+  isVersion() const;
+
+  /**
+   * @brief Check if the component is segment number per NDN naming conventions
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   */
+  bool
+  isSegment() const;
+
+  /**
+   * @brief Check if the component is segment offset per NDN naming conventions
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   */
+  bool
+  isSegmentOffset() const;
+
+  /**
+   * @brief Check if the component is timestamp per NDN naming conventions
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   */
+  bool
+  isTimestamp() const;
+
+  /**
+   * @brief Check if the component is sequence number per NDN naming conventions
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   */
+  bool
+  isSequenceNumber() const;
+
+  ////////////////////////////////////////////////////////////////////////////////
 
   /**
    * @brief Interpret this name component as nonNegativeInteger
@@ -262,16 +319,74 @@ public:
   toNumber() const;
 
   /**
-   * @brief An alias for toNumber()
+   * @brief Interpret this name component as NameComponentWithMarker
+   *
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   *
+   * @param marker 1-byte octet of the marker
+   * @return The integer number.
+   * @throws Error if name component does not have the specified marker.
+   *         tlv::Error if format does not follow NameComponentWithMarker specification.
+   */
+  uint64_t
+  toNumberWithMarker(uint8_t marker) const;
+
+  /**
+   * @brief Interpret as version component using NDN naming conventions
+   *
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   *
+   * @throws Error if name component does not have the specified marker.
+   *         tlv::Error if format does not follow NameComponentWithMarker specification.
    */
   uint64_t
   toVersion() const;
 
   /**
-   * @brief An alias for toNumber()
+   * @brief Interpret as segment number component using NDN naming conventions
+   *
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   *
+   * @throws Error if name component does not have the specified marker.
+   *         tlv::Error if format does not follow NameComponentWithMarker specification.
    */
   uint64_t
   toSegment() const;
+
+  /**
+   * @brief Interpret as segment offset component using NDN naming conventions
+   *
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   *
+   * @throws Error if name component does not have the specified marker.
+   *         tlv::Error if format does not follow NameComponentWithMarker specification.
+   */
+  uint64_t
+  toSegmentOffset() const;
+
+  /**
+   * @brief Interpret as timestamp component using NDN naming conventions
+   *
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   *
+   * @throws Error if name component does not have the specified marker.
+   *         tlv::Error if format does not follow NameComponentWithMarker specification.
+   */
+  time::system_clock::TimePoint
+  toTimestamp() const;
+
+  /**
+   * @brief Interpret as sequence number component using NDN naming conventions
+   *
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   *
+   * @throws Error if name component does not have the specified marker.
+   *         tlv::Error if format does not follow NameComponentWithMarker specification.
+   */
+  uint64_t
+  toSequenceNumber() const;
+
+  ////////////////////////////////////////////////////////////////////////////////
 
   /**
    * @brief Create a component encoded as nonNegativeInteger
@@ -283,6 +398,70 @@ public:
    */
   static Component
   fromNumber(uint64_t number);
+
+  /**
+   * @brief Create a component encoded as NameComponentWithMarker
+   *
+   * NameComponentWithMarker is defined as:
+   *
+   *     NameComponentWithMarker ::= NAME-COMPONENT-TYPE TLV-LEGTH
+   *                                   Marker
+   *                                   includedNonNegativeInteger
+   *     Marker ::= BYTE
+   *     includedNonNegativeInteger ::= BYTE{1,2,4,8}
+   *     NDN-TLV := TLV-TYPE TLV-LENGTH TLV-VALUE?
+   *     TLV-TYPE := VAR-NUMBER
+   *     TLV-LENGTH := VAR-NUMBER
+   *     TLV-VALUE := BYTE+
+   *
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   *
+   * @param marker 1-byte marker octet
+   * @param number The non-negative number
+   * @return The component value.
+   */
+  static Component
+  fromNumberWithMarker(uint8_t marker, uint64_t number);
+
+  /**
+   * @brief Create version component using NDN naming conventions
+   *
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   */
+  static Component
+  fromVersion(uint64_t version);
+
+  /**
+   * @brief Create segment number component using NDN naming conventions
+   *
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   */
+  static Component
+  fromSegment(uint64_t segmentNo);
+
+  /**
+   * @brief Create segment offset component using NDN naming conventions
+   *
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   */
+  static Component
+  fromSegmentOffset(uint64_t offset);
+
+  /**
+   * @brief Create sequence number component using NDN naming conventions
+   *
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   */
+  static Component
+  fromTimestamp(const time::system_clock::TimePoint& timePoint);
+
+  /**
+   * @brief Create sequence number component using NDN naming conventions
+   *
+   * @see http://named-data.net/doc/tech-memos/naming-conventions.pdf
+   */
+  static Component
+  fromSequenceNumber(uint64_t seqNo);
 
   bool
   empty() const
@@ -408,233 +587,12 @@ operator<<(std::ostream& os, const Component& component)
   return os;
 }
 
-inline
-Component::Component()
-  : Block(Tlv::NameComponent)
-{
-}
-
-inline
-Component::Component(const Block& wire)
-  : Block(wire)
-{
-  if (type() != Tlv::NameComponent)
-    throw Error("Constructing name component from non name component TLV wire block");
-}
-
-inline
-Component::Component(const ConstBufferPtr& buffer)
-  : Block(Tlv::NameComponent, buffer)
-{
-}
-
-inline
-Component::Component(const Buffer& value)
-  : Block(dataBlock(Tlv::NameComponent, value.buf(), value.size()))
-{
-}
-
-inline
-Component::Component(const uint8_t* value, size_t valueLen)
-  : Block(dataBlock(Tlv::NameComponent, value, valueLen))
-{
-}
-
 template<class InputIterator>
 inline
 Component::Component(InputIterator begin, InputIterator end)
-  : Block(dataBlock(Tlv::NameComponent, begin, end))
+  : Block(dataBlock(tlv::NameComponent, begin, end))
 {
 }
-
-inline
-Component::Component(const char* str)
-  : Block(dataBlock(Tlv::NameComponent, str, ::strlen(str)))
-{
-}
-
-inline
-Component::Component(const std::string& str)
-  : Block(dataBlock(Tlv::NameComponent, str.c_str(), str.size()))
-{
-}
-
-
-inline Component
-Component::fromEscapedString(const char* escapedString, size_t beginOffset, size_t endOffset)
-{
-  std::string trimmedString(escapedString + beginOffset, escapedString + endOffset);
-  trim(trimmedString);
-  std::string value = unescape(trimmedString);
-
-  if (value.find_first_not_of(".") == std::string::npos) {
-    // Special case for component of only periods.
-    if (value.size() <= 2)
-      // Zero, one or two periods is illegal.  Ignore this component.
-      return Component();
-    else
-      // Remove 3 periods.
-      return Component(reinterpret_cast<const uint8_t*>(&value[3]), value.size() - 3);
-  }
-  else
-    return Component(reinterpret_cast<const uint8_t*>(&value[0]), value.size());
-}
-
-
-inline void
-Component::toUri(std::ostream& result) const
-{
-  const uint8_t* valuePtr = value();
-  size_t valueSize = value_size();
-
-  bool gotNonDot = false;
-  for (unsigned i = 0; i < valueSize; ++i) {
-    if (valuePtr[i] != 0x2e) {
-      gotNonDot = true;
-      break;
-    }
-  }
-  if (!gotNonDot) {
-    // Special case for component of zero or more periods.  Add 3 periods.
-    result << "...";
-    for (size_t i = 0; i < valueSize; ++i)
-      result << '.';
-  }
-  else {
-    // In case we need to escape, set to upper case hex and save the previous flags.
-    std::ios::fmtflags saveFlags = result.flags(std::ios::hex | std::ios::uppercase);
-
-    for (size_t i = 0; i < valueSize; ++i) {
-      uint8_t x = valuePtr[i];
-      // Check for 0-9, A-Z, a-z, (+), (-), (.), (_)
-      if ((x >= 0x30 && x <= 0x39) || (x >= 0x41 && x <= 0x5a) ||
-          (x >= 0x61 && x <= 0x7a) || x == 0x2b || x == 0x2d ||
-          x == 0x2e || x == 0x5f)
-        result << x;
-      else {
-        result << '%';
-        if (x < 16)
-          result << '0';
-        result << static_cast<unsigned int>(x);
-      }
-    }
-
-    // Restore.
-    result.flags(saveFlags);
-  }
-}
-
-
-inline Component
-Component::fromNumber(uint64_t number)
-{
-  /// \todo Change to Tlv::NumberComponent
-  return nonNegativeIntegerBlock(Tlv::NameComponent, number);
-}
-
-
-inline uint64_t
-Component::toNumber() const
-{
-  /// \todo Check if Component is of Tlv::NumberComponent type
-  return readNonNegativeInteger(static_cast<const Block&>(*this));
-}
-
-
-inline uint64_t
-Component::toVersion() const
-{
-  return toNumber();
-}
-
-inline uint64_t
-Component::toSegment() const
-{
-  return toNumber();
-}
-
-inline int
-Component::compare(const Component& other) const
-{
-  // Imitate ndn_Exclude_compareComponents.
-  if (value_size() < other.value_size())
-    return -1;
-  if (value_size() > other.value_size())
-    return 1;
-
-  if (value_size() == 0)
-    return 0;
-
-  // The components are equal length.  Just do a byte compare.
-  return std::memcmp(value(), other.value(), value_size());
-}
-
-inline Component
-Component::getSuccessor() const
-{
-  size_t totalLength = 0;
-  EncodingBuffer encoder(size() + 1, 1); // + 1 in case there is an overflow
-                                         // in unlikely case TLV length changes more,
-                                         // EncodingBuffer will take care of that
-
-  bool isOverflow = true;
-  size_t i = value_size();
-  for (; isOverflow && i > 0; i--) {
-    uint8_t newValue = static_cast<uint8_t>((value()[i - 1] + 1) & 0xFF);
-    totalLength += encoder.prependByte(newValue);
-    isOverflow = (newValue == 0);
-  }
-  totalLength += encoder.prependByteArray(value(), i);
-
-  if (isOverflow) {
-    // new name components has to be extended
-    totalLength += encoder.appendByte(0);
-  }
-
-  totalLength += encoder.prependVarNumber(totalLength);
-  totalLength += encoder.prependVarNumber(Tlv::NameComponent);
-
-  return encoder.block();
-}
-
-
-template<bool T>
-inline size_t
-Component::wireEncode(EncodingImpl<T>& block) const
-{
-  size_t totalLength = 0;
-  if (value_size() > 0)
-    totalLength += block.prependByteArray(value(), value_size());
-  totalLength += block.prependVarNumber(value_size());
-  totalLength += block.prependVarNumber(Tlv::NameComponent);
-  return totalLength;
-}
-
-inline const Block&
-Component::wireEncode() const
-{
-  if (this->hasWire())
-    return *this;
-
-  EncodingEstimator estimator;
-  size_t estimatedSize = wireEncode(estimator);
-
-  EncodingBuffer buffer(estimatedSize, 0);
-  wireEncode(buffer);
-
-  const_cast<Component&>(*this) = buffer.block();
-  return *this;
-}
-
-inline void
-Component::wireDecode(const Block& wire)
-{
-  if (wire.type() != Tlv::NameComponent)
-    throw Error("wireDecode name component from non name component TLV wire block");
-
-  *this = wire;
-}
-
 
 } // namespace name
 } // namespace ndn

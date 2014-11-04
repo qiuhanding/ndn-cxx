@@ -23,6 +23,7 @@
 #define NDN_ENCODING_TLV_NFD_HPP
 
 #include "../common.hpp"
+#include "nfd-constants.hpp"
 
 namespace ndn {
 namespace tlv {
@@ -55,25 +56,37 @@ enum {
   NPitEntries          = 133,
   NMeasurementsEntries = 134,
   NCsEntries           = 135,
-  NInInterests         = 144,
-  NInDatas             = 145,
-  NOutInterests        = 146,
-  NOutDatas            = 147,
 
   // Face Management
   FaceStatus            = 128,
   LocalUri              = 129,
   ChannelStatus         = 130,
-  FaceFlags             = 194,
+  UriScheme             = 131,
+  FaceScope             = 132,
+  FacePersistency       = 133,
+  LinkType              = 134,
+  FaceQueryFilter       = 150,
   FaceEventNotification = 192,
   FaceEventKind         = 193,
+
+  // ForwarderStatus and FaceStatus counters
+  NInInterests  = 144,
+  NInDatas      = 145,
+  NOutInterests = 146,
+  NOutDatas     = 147,
+  NInBytes      = 148,
+  NOutBytes     = 149,
 
   // FIB Management
   FibEntry      = 128,
   NextHopRecord = 129,
 
   // Strategy Choice Management
-  StrategyChoice = 128
+  StrategyChoice = 128,
+
+  // RIB Management
+  RibEntry = 128,
+  Route    = 129
 
 };
 
@@ -86,13 +99,6 @@ enum {
 
 } // namespace nfd
 } // namespace tlv
-
-namespace nfd {
-
-const uint64_t INVALID_FACE_ID = std::numeric_limits<uint64_t>::max();
-
-} // namespace nfd
-
 } // namespace ndn
 
 #endif // NDN_ENCODING_TLV_NFD_HPP

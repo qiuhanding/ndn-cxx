@@ -55,6 +55,36 @@ BOOST_AUTO_TEST_CASE(Basic)
   BOOST_CHECK_EQUAL(e.toUri(), "a,b,c,d,aa,cc");
 }
 
+BOOST_AUTO_TEST_CASE(EqualityComparable)
+{
+  Exclude e1;
+  Exclude e2;
+  BOOST_CHECK_EQUAL(e1, e2);
+
+  e1.excludeOne(name::Component("T"));
+  BOOST_CHECK_NE(e1, e2);
+
+  e2.excludeOne(name::Component("D"));
+  BOOST_CHECK_NE(e1, e2);
+
+  e2.clear();
+  e2.excludeOne(name::Component("T"));
+  BOOST_CHECK_EQUAL(e1, e2);
+
+  e2.clear();
+  const uint8_t EXCLUDE[] = { 0x10, 0x15, 0x13, 0x00, 0x08, 0x01, 0x41, 0x08, 0x01, 0x42,
+                              0x08, 0x01, 0x43, 0x13, 0x00, 0x08, 0x01, 0x44, 0x08, 0x01,
+                              0x45, 0x13, 0x00 };
+  e2.wireDecode(Block(EXCLUDE, sizeof(EXCLUDE)));
+
+  e1.clear();
+  e1.excludeBefore(name::Component("A"));
+  e1.excludeOne(name::Component("B"));
+  e1.excludeRange(name::Component("C"), name::Component("D"));
+  e1.excludeAfter(name::Component("E"));
+  BOOST_CHECK_EQUAL(e1, e2);
+}
+
 BOOST_AUTO_TEST_CASE(Before)
 {
   // based on http://redmine.named-data.net/issues/1158
@@ -113,7 +143,51 @@ BOOST_AUTO_TEST_CASE(Ranges)
   BOOST_CHECK_EQUAL(e.size(), 1);
   BOOST_CHECK_EQUAL(e.toUri(), "*");
 
-  BOOST_REQUIRE_THROW(e.excludeRange(name::Component("d0"), name::Component("a0")), Exclude::Error);
+  BOOST_REQUIRE_THROW(e.excludeRange(name::Component("d0"), name::Component("a0")),
+                      Exclude::Error);
+}
+
+BOOST_AUTO_TEST_CASE(Malformed)
+{
+  Exclude e1;
+  BOOST_CHECK_THROW(e1.wireEncode(), Exclude::Error);
+
+  Exclude e2;
+
+  // top-level TLV-TYPE is not tlv::Exclude
+  const uint8_t NON_EXCLUDE[] = { 0x01, 0x02, 0x13, 0x00 };
+  BOOST_CHECK_THROW(e2.wireDecode(Block(NON_EXCLUDE, sizeof(NON_EXCLUDE))),
+                    tlv::Error);
+
+  // Exclude element is empty
+  const uint8_t EMPTY_EXCLUDE[] = { 0x10, 0x00 };
+  BOOST_CHECK_THROW(e2.wireDecode(Block(EMPTY_EXCLUDE, sizeof(EMPTY_EXCLUDE))),
+                    Exclude::Error);
+
+  // Exclude element contains unknown element
+  const uint8_t UNKNOWN_COMP1[] = { 0x10, 0x02, 0xAA, 0x00 };
+  BOOST_CHECK_THROW(e2.wireDecode(Block(UNKNOWN_COMP1, sizeof(UNKNOWN_COMP1))),
+                    Exclude::Error);
+
+  // Exclude element contains unknown element
+  const uint8_t UNKNOWN_COMP2[] = { 0x10, 0x05, 0x08, 0x01, 0x54, 0xAA, 0x00 };
+  BOOST_CHECK_THROW(e2.wireDecode(Block(UNKNOWN_COMP2, sizeof(UNKNOWN_COMP2))),
+                    Exclude::Error);
+
+  // // <Exclude><Any/></Exclude>
+  // const uint8_t ONLY_ANY[] = { 0x10, 0x02, 0x13, 0x00 };
+  // BOOST_CHECK_THROW(e2.wireDecode(Block(ONLY_ANY, sizeof(ONLY_ANY))),
+  //                   Exclude::Error);
+
+  // <Exclude><Any/><Any/></Exclude>
+  const uint8_t ANY_ANY[] = { 0x10, 0x04, 0x13, 0x00, 0x13, 0x00 };
+  BOOST_CHECK_THROW(e2.wireDecode(Block(ANY_ANY, sizeof(ANY_ANY))),
+                                  Exclude::Error);
+
+  // // <Exclude><Any/><NameComponent>T</NameComponent><Any/></Exclude>
+  // const uint8_t ANY_COMPONENT_ANY[] = { 0x10, 0x07, 0x13, 0x00, 0x08, 0x01, 0x54, 0x13, 0x00 };
+  // BOOST_CHECK_THROW(e2.wireDecode(Block(ANY_COMPONENT_ANY, sizeof(ANY_COMPONENT_ANY))),
+  //                   Exclude::Error);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

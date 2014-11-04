@@ -19,53 +19,22 @@
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
  */
 
-#ifndef NDN_MANAGEMENT_NFD_FACE_FLAGS_HPP
-#define NDN_MANAGEMENT_NFD_FACE_FLAGS_HPP
+#include "identity-management-fixture.hpp"
+#include "boost-test.hpp"
 
 namespace ndn {
-namespace nfd {
 
-/**
- * \ingroup management
- * \brief provides additional information about a face
- */
-enum FaceFlags {
-  /** \brief face is local (for scope control purpose)
-   */
-  FACE_IS_LOCAL = 1,
-  /** \brief face is created on demand (accepted incoming connection,
-   *         not initiated outgoing connection)
-   */
-  FACE_IS_ON_DEMAND = 2
-  // FACE_? = 4
-  // FACE_? = 8
-};
+BOOST_FIXTURE_TEST_SUITE(SecurityTestIdentityManagementFixture, security::IdentityManagementFixture)
 
-/**
- * \ingroup management
- * \brief implements getters to each face flag
- *
- * \tparam T class containing a FaceFlags field and implements
- *           `FaceFlags getFlags() const` method
- */
-template<typename T>
-class FaceFlagsTraits
+BOOST_AUTO_TEST_CASE(Tmp)
 {
-public:
-  bool
-  isLocal() const
-  {
-    return static_cast<const T*>(this)->getFlags() & FACE_IS_LOCAL;
-  }
+  Name identity("/tmp/identity");
+  BOOST_REQUIRE(addIdentity(identity));
+  Name certName = m_keyChain.getDefaultCertificateNameForIdentity(identity);
+  BOOST_REQUIRE_EQUAL(certName.empty(), false);
+  BOOST_REQUIRE_NO_THROW(m_keyChain.getCertificate(certName));
+}
 
-  bool
-  isOnDemand() const
-  {
-    return static_cast<const T*>(this)->getFlags() & FACE_IS_ON_DEMAND;
-  }
-};
+BOOST_AUTO_TEST_SUITE_END()
 
-} // namespace nfd
 } // namespace ndn
-
-#endif // NDN_MANAGEMENT_NFD_FACE_FLAGS_HPP

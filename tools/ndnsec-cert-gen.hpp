@@ -36,14 +36,16 @@ ndnsec_cert_gen(int argc, char** argv)
   using namespace ndn::time;
   namespace po = boost::program_options;
 
+  KeyChain keyChain;
+
   std::string notBeforeStr;
   std::string notAfterStr;
   std::string subjectName;
   std::string requestFile("-");
-  std::string signId;
+  Name signId;
   std::string subjectInfo;
-  std::string certPrefix;
-  bool hasSignId = false;
+  std::vector<std::string> signedInfo;
+  Name certPrefix = KeyChain::DEFAULT_PREFIX; // to avoid displaying the default value
 
   po::options_description description(
     "General Usage\n"
@@ -53,22 +55,26 @@ ndnsec_cert_gen(int argc, char** argv)
 
   description.add_options()
     ("help,h", "produce help message")
-    ("not-before,S",     po::value<std::string>(&notBeforeStr),
-                         "certificate starting date, YYYYMMDDhhmmss")
-    ("not-after,E",      po::value<std::string>(&notAfterStr),
-                         "certificate ending date, YYYYMMDDhhmmss")
-    ("subject-name,N",   po::value<std::string>(&subjectName),
-                         "subject name")
-    ("subject-info,I",   po::value<std::string>(&subjectInfo),
-                         "subject info, pairs of OID and string description: "
-                         "\"2.5.4.10 'University of California, Los Angeles'\"")
-    ("sign-id,s",        po::value<std::string>(&signId),
-                         "signing Identity, system default identity if not specified")
-    ("cert-prefix,p", po::value<std::string>(&certPrefix),
-                         "cert prefix, which is the part of certificate name before "
-                         "KEY component")
-    ("request,r",        po::value<std::string>(&requestFile),
-                         "request file name, - for stdin")
+    ("not-before,S",   po::value<std::string>(&notBeforeStr),
+                       "certificate starting date, YYYYMMDDhhmmss (default: now)")
+    ("not-after,E",    po::value<std::string>(&notAfterStr),
+                       "certificate ending date, YYYYMMDDhhmmss (default: now + 365 days)")
+    ("subject-name,N", po::value<std::string>(&subjectName),
+                       "subject name")
+    ("subject-info,I", po::value<std::string>(&subjectInfo),
+                       "(deprecated, uses 'signed-info') subject info, pairs of OID and string "
+                       " description: \"2.5.4.10 'University of California, Los Angeles'\"")
+    ("signed-info",    po::value<std::vector<std::string> >(&signedInfo),
+                       "a pair of OID and string (must be separated by a single space), e.g., "
+                       "\"2.5.4.10 University of California, Los Angeles\". "
+                       "May be repeated multiple times")
+    ("sign-id,s",      po::value<Name>(&signId)->default_value(keyChain.getDefaultIdentity()),
+                       "signing identity")
+    ("cert-prefix,p",  po::value<Name>(&certPrefix),
+                       "cert prefix, which is the part of certificate name before "
+                       "KEY component")
+    ("request,r",      po::value<std::string>(&requestFile)->default_value("-"),
+                       "request file name, - for stdin")
     ;
 
   po::positional_options_description p;
@@ -89,24 +95,22 @@ ndnsec_cert_gen(int argc, char** argv)
 
   if (vm.count("help") != 0)
     {
-      std::cerr << description << std::endl;
+      std::cout << description << std::endl;
       return 0;
-    }
-
-  if (vm.count("sign-id") != 0)
-    {
-      hasSignId = true;
     }
 
   if (vm.count("subject-name") == 0)
     {
-      std::cerr << "subject_name must be specified" << std::endl;
+      std::cerr << "ERROR: subject name must be specified" << std::endl
+                << std::endl
+                << description << std::endl;
       return 1;
     }
 
   std::vector<CertificateSubjectDescription> subjectDescription;
   subjectDescription.push_back(CertificateSubjectDescription(oid::ATTRIBUTE_NAME, subjectName));
 
+  // 'subjectInfo' is deprecated and the following block will be removed eventually
   tokenizer<escaped_list_separator<char> > subjectInfoItems
     (subjectInfo, escaped_list_separator<char>("\\", " \t", "'\""));
 
@@ -130,6 +134,20 @@ ndnsec_cert_gen(int argc, char** argv)
 
       it++;
     }
+
+  // new 'signedInfo' processing
+  for (std::vector<std::string>::const_iterator info = signedInfo.begin();
+       info != signedInfo.end(); ++info) {
+    size_t pos = info->find(" ");
+    if (pos == std::string::npos) {
+      std::cerr << "ERROR: incorrectly formatted signed info block [" << *info << "]" << std::endl;
+      return 1;
+    }
+    OID oid(info->substr(0, pos));
+    std::string value = info->substr(pos + 1);
+
+    subjectDescription.push_back(CertificateSubjectDescription(oid, value));
+  }
 
   system_clock::TimePoint notBefore;
   system_clock::TimePoint notAfter;
@@ -155,14 +173,18 @@ ndnsec_cert_gen(int argc, char** argv)
 
       if (notAfter < notBefore)
         {
-          std::cerr << "not-before is later than not-after" << std::endl;
+          std::cerr << "ERROR: not-before cannot be later than not-after" << std::endl
+                    << std::endl
+                    << description << std::endl;
           return 1;
         }
     }
 
   if (vm.count("request") == 0)
     {
-      std::cerr << "request file must be specified" << std::endl;
+      std::cerr << "ERROR: request file must be specified" << std::endl
+                << std::endl
+                << description << std::endl;
       return 1;
     }
 
@@ -175,31 +197,22 @@ ndnsec_cert_gen(int argc, char** argv)
       return 1;
     }
 
-  KeyChain keyChain;
-
   Name keyName = selfSignedCertificate->getPublicKeyName();
-  Name signIdName;
-  Name prefix(certPrefix);
-
-  if (!hasSignId)
-    signIdName = keyChain.getDefaultIdentity();
-  else
-    signIdName = Name(signId);
 
   shared_ptr<IdentityCertificate> certificate =
     keyChain.prepareUnsignedIdentityCertificate(keyName, selfSignedCertificate->getPublicKeyInfo(),
-                                                signIdName, notBefore, notAfter,
-                                                subjectDescription, prefix);
+                                                signId, notBefore, notAfter,
+                                                subjectDescription, certPrefix);
 
   if (!static_cast<bool>(certificate))
     {
-      std::cerr << "ERROR: key name is not formated correctly or does not match certificate name."
+      std::cerr << "ERROR: key name is not formated correctly or does not match certificate name"
                 << std::endl;
       return 1;
     }
 
-  keyChain.createIdentity(signIdName);
-  Name signingCertificateName = keyChain.getDefaultCertificateNameForIdentity(signIdName);
+  keyChain.createIdentity(signId);
+  Name signingCertificateName = keyChain.getDefaultCertificateNameForIdentity(signId);
   keyChain.sign(*certificate, signingCertificateName);
 
   Block wire = certificate->wireEncode();

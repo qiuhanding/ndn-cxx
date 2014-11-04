@@ -41,12 +41,12 @@ namespace pib {
 class GetParam : noncopyable
 {
 public:
-  class Error : public Tlv::Error
+  class Error : public tlv::Error
   {
   public:
     explicit
     Error(const std::string& what)
-      : Tlv::Error(what)
+      : tlv::Error(what)
     {
     }
   };

@@ -24,6 +24,7 @@
 #include "pib-db.hpp"
 #include <sqlite3.h>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 
 namespace ndn {
 namespace pib {

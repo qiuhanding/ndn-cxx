@@ -23,7 +23,10 @@
 #define NDN_ENCODING_TLV_HPP
 
 #include <stdexcept>
+#include <iostream>
 #include <iterator>
+#include <limits>
+
 #include "buffer.hpp"
 #include "endian.hpp"
 
@@ -32,7 +35,7 @@ namespace ndn {
 /**
  * @brief Namespace defining NDN-TLV related constants and procedures
  */
-namespace Tlv {
+namespace tlv {
 
 class Error : public std::runtime_error
 {
@@ -69,7 +72,7 @@ enum {
   FinalBlockId  = 26,
   SignatureType = 27,
   KeyLocator    = 28,
-  KeyLocatorDigest = 29,
+  KeyDigest     = 29,
 
   AppPrivateBlock1 = 128,
   AppPrivateBlock2 = 32767
@@ -125,7 +128,7 @@ readType(InputIterator& begin, const InputIterator& end, uint32_t& type);
 /**
  * @brief Read VAR-NUMBER in NDN-TLV encoding
  *
- * @throws This call will throw ndn::Tlv::Error (aka std::runtime_error) if number cannot be read
+ * @throws This call will throw ndn::tlv::Error (aka std::runtime_error) if number cannot be read
  *
  * Note that after call finished, begin will point to the first byte after the read VAR-NUMBER
  */
@@ -136,7 +139,7 @@ readVarNumber(InputIterator& begin, const InputIterator& end);
 /**
  * @brief Read TLV Type
  *
- * @throws This call will throw ndn::Tlv::Error (aka std::runtime_error) if number cannot be read
+ * @throws This call will throw ndn::tlv::Error (aka std::runtime_error) if number cannot be read
  *
  * This call is largely equivalent to tlv::readVarNumber, but exception will be thrown if type
  * is larger than 2^32-1 (type in this library is implemented as uint32_t)
@@ -160,7 +163,7 @@ writeVarNumber(std::ostream& os, uint64_t varNumber);
 /**
  * @brief Read nonNegativeInteger in NDN-TLV encoding
  *
- * This call will throw ndn::Tlv::Error (aka std::runtime_error) if number cannot be read
+ * This call will throw ndn::tlv::Error (aka std::runtime_error) if number cannot be read
  *
  * Note that after call finished, begin will point to the first byte after the read VAR-NUMBER
  *
@@ -536,7 +539,7 @@ writeNonNegativeInteger(std::ostream& os, uint64_t varNumber)
 }
 
 
-} // namespace Tlv
+} // namespace tlv
 
 } // namespace ndn
 

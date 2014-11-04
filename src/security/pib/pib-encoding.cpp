@@ -23,6 +23,7 @@
 #include "pib-common.hpp"
 #include "encoding/block-helpers.hpp"
 #include "encoding/encoding-buffer.hpp"
+#include "security/cryptopp.hpp"
 #include <vector>
 #include <string>
 
@@ -78,11 +79,11 @@ void
 PibIdentity::wireDecode(const Block& wire)
 {
   if (!wire.hasWire()) {
-    throw Tlv::Error("The supplied block does not contain wire format");
+    throw tlv::Error("The supplied block does not contain wire format");
   }
 
   if (wire.type() != tlv::pib::Identity)
-    throw Tlv::Error("Unexpected TLV type when decoding PibIdentity");
+    throw tlv::Error("Unexpected TLV type when decoding PibIdentity");
 
   m_wire = wire;
   m_identity.wireDecode(m_wire.blockFromValue());
@@ -108,7 +109,7 @@ PibPublicKey::getKeyName() const
   if (m_isValueSet)
     return m_keyName;
   else
-    throw Tlv::Error("PibPublicKey::getKeyName: keyName is not set");
+    throw tlv::Error("PibPublicKey::getKeyName: keyName is not set");
 }
 
 const PublicKey&
@@ -117,7 +118,7 @@ PibPublicKey::getPublicKey() const
   if (m_isValueSet)
     return m_key;
   else
-    throw Tlv::Error("PibPublicKey::getPublicKey: key is not set");
+    throw tlv::Error("PibPublicKey::getPublicKey: key is not set");
 }
 
 template<bool T>
@@ -159,22 +160,22 @@ void
 PibPublicKey::wireDecode(const Block& wire)
 {
   if (!wire.hasWire()) {
-    throw Tlv::Error("The supplied block does not contain wire format");
+    throw tlv::Error("The supplied block does not contain wire format");
   }
 
   if (wire.type() != tlv::pib::PublicKey)
-    throw Tlv::Error("Unexpected TLV type when decoding PibPublicKey");
+    throw tlv::Error("Unexpected TLV type when decoding PibPublicKey");
 
   m_wire = wire;
   m_wire.parse();
 
   Block::element_const_iterator it = m_wire.elements_begin();
-  if (it != m_wire.elements_end() && it->type() == Tlv::Name) {
+  if (it != m_wire.elements_end() && it->type() == tlv::Name) {
     m_keyName.wireDecode(*it);
     it++;
   }
   else
-    throw Tlv::Error("PibPublicKey requires the first sub-TLV to be Name");
+    throw tlv::Error("PibPublicKey requires the first sub-TLV to be Name");
 
   if (it != m_wire.elements_end() && it->type() == tlv::pib::Bytes) {
     using namespace CryptoPP;
@@ -184,11 +185,11 @@ PibPublicKey::wireDecode(const Block& wire)
     it++;
   }
   else
-    throw Tlv::Error("PibPublicKey requires the second sub-TLV to be Bytes");
+    throw tlv::Error("PibPublicKey requires the second sub-TLV to be Bytes");
 
   m_isValueSet = true;
   if (it != m_wire.elements_end())
-    throw Tlv::Error("PibPublicKey must contain only two sub-TLVs");
+    throw tlv::Error("PibPublicKey must contain only two sub-TLVs");
 }
 
 
@@ -209,7 +210,7 @@ PibCertificate::getCertificate() const
   if (m_isValueSet)
     return m_certificate;
   else
-    throw Tlv::Error("PibCertificate::getCertificate: certificate is not set");
+    throw tlv::Error("PibCertificate::getCertificate: certificate is not set");
 }
 
 template<bool T>
@@ -249,11 +250,11 @@ void
 PibCertificate::wireDecode(const Block& wire)
 {
   if (!wire.hasWire()) {
-    throw Tlv::Error("The supplied block does not contain wire format");
+    throw tlv::Error("The supplied block does not contain wire format");
   }
 
   if (wire.type() != tlv::pib::Certificate)
-    throw Tlv::Error("Unexpected TLV type when decoding PibCertificate");
+    throw tlv::Error("Unexpected TLV type when decoding PibCertificate");
 
   m_wire = wire;
   m_certificate.wireDecode(m_wire.blockFromValue());
@@ -314,17 +315,17 @@ void
 PibNameList::wireDecode(const Block& wire)
 {
   if (!wire.hasWire()) {
-    throw Tlv::Error("The supplied block does not contain wire format");
+    throw tlv::Error("The supplied block does not contain wire format");
   }
 
   if (wire.type() != tlv::pib::NameList)
-    throw Tlv::Error("Unexpected TLV type when decoding PibNameList");
+    throw tlv::Error("Unexpected TLV type when decoding PibNameList");
 
   m_wire = wire;
   m_wire.parse();
   for (Block::element_const_iterator it = m_wire.elements_begin();
        it != m_wire.elements_end(); it++) {
-    if (it->type() == Tlv::Name) {
+    if (it->type() == tlv::Name) {
       Name name;
       name.wireDecode(*it);
       m_names.push_back(name);
@@ -384,11 +385,11 @@ void
 PibError::wireDecode(const Block& wire)
 {
   if (!wire.hasWire()) {
-    throw Tlv::Error("The supplied block does not contain wire format");
+    throw tlv::Error("The supplied block does not contain wire format");
   }
 
   if (wire.type() != tlv::pib::Error)
-    throw Tlv::Error("Unexpected TLV type when decoding Error");
+    throw tlv::Error("Unexpected TLV type when decoding Error");
 
   m_wire = wire;
   m_wire.parse();
@@ -399,14 +400,14 @@ PibError::wireDecode(const Block& wire)
     it++;
   }
   else
-    throw Tlv::Error("PibError requires the first sub-TLV to be ErrorCode");
+    throw tlv::Error("PibError requires the first sub-TLV to be ErrorCode");
 
   if (it != m_wire.elements_end() && it->type() == tlv::pib::Bytes) {
     m_msg = string(reinterpret_cast<const char*>(it->value()), it->value_size());
     it++;
   }
   else
-    throw Tlv::Error("PibError requires the second sub-TLV to be Bytes");
+    throw tlv::Error("PibError requires the second sub-TLV to be Bytes");
 }
 
 PibUser::PibUser()
@@ -458,22 +459,22 @@ void
 PibUser::wireDecode(const Block& wire)
 {
   if (!wire.hasWire()) {
-    throw Tlv::Error("The supplied block does not contain wire format");
+    throw tlv::Error("The supplied block does not contain wire format");
   }
 
   if (wire.type() != tlv::pib::User)
-    throw Tlv::Error("Unexpected TLV type when decoding Content");
+    throw tlv::Error("Unexpected TLV type when decoding Content");
 
   m_wire = wire;
   m_wire.parse();
 
   Block::element_const_iterator it = m_wire.elements_begin();
-  if (it != m_wire.elements_end() && it->type() == Tlv::Data) {
+  if (it != m_wire.elements_end() && it->type() == tlv::Data) {
     m_mgmtCert.wireDecode(*it);
     it++;
   }
   else
-    throw Tlv::Error("PibError requires the first sub-TLV to be Data");
+    throw tlv::Error("PibError requires the first sub-TLV to be Data");
 }
 
 } // namespace pib

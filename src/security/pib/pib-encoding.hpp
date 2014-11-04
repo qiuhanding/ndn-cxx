@@ -58,7 +58,7 @@ public:
   /**
    * @brief Decode PibIdentity from a wire encoded block
    *
-   * @throws Tlv::Error if decoding fails
+   * @throws tlv::Error if decoding fails
    */
   void
   wireDecode(const Block& wire);
@@ -99,7 +99,7 @@ public:
   /**
    * @brief Decode PibPublicKey from a wire encoded block
    *
-   * @throws Tlv::Error if decoding fails
+   * @throws tlv::Error if decoding fails
    */
   void
   wireDecode(const Block& wire);
@@ -140,7 +140,7 @@ public:
   /**
    * @brief Decode PibCertificate from a wire encoded block
    *
-   * @throws Tlv::Error if decoding fails
+   * @throws tlv::Error if decoding fails
    */
   void
   wireDecode(const Block& wire);
@@ -181,7 +181,7 @@ public:
   /**
    * @brief Decode PibCertificate from a wire encoded block
    *
-   * @throws Tlv::Error if decoding fails
+   * @throws tlv::Error if decoding fails
    */
   void
   wireDecode(const Block& wire);
@@ -227,7 +227,7 @@ public:
   /**
    * @brief Decode PibCertificate from a wire encoded block
    *
-   * @throws Tlv::Error if decoding fails
+   * @throws tlv::Error if decoding fails
    */
   void
   wireDecode(const Block& wire);
@@ -270,7 +270,7 @@ public:
   /**
    * @brief Decode PibCertificate from a wire encoded block
    *
-   * @throws Tlv::Error if decoding fails
+   * @throws tlv::Error if decoding fails
    */
   void
   wireDecode(const Block& wire);

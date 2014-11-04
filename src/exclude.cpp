@@ -21,14 +21,126 @@
  * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
  */
 
-#include "common.hpp"
-
 #include "exclude.hpp"
+
+#include <boost/static_assert.hpp>
+#include <boost/type_traits.hpp>
 
 namespace ndn {
 
+BOOST_STATIC_ASSERT((boost::is_base_of<tlv::Error, Exclude::Error>::value));
+
 Exclude::Exclude()
 {
+}
+
+Exclude::Exclude(const Block& wire)
+{
+  wireDecode(wire);
+}
+
+template<bool T>
+size_t
+Exclude::wireEncode(EncodingImpl<T>& block) const
+{
+  if (m_exclude.empty()) {
+    throw Error("Exclude filter cannot be empty");
+  }
+
+  size_t totalLength = 0;
+
+  // Exclude ::= EXCLUDE-TYPE TLV-LENGTH Any? (NameComponent (Any)?)+
+  // Any     ::= ANY-TYPE TLV-LENGTH(=0)
+
+  for (Exclude::const_iterator i = m_exclude.begin(); i != m_exclude.end(); i++)
+    {
+      if (i->second)
+        {
+          totalLength += prependBooleanBlock(block, tlv::Any);
+        }
+      if (!i->first.empty())
+        {
+          totalLength += i->first.wireEncode(block);
+        }
+    }
+
+  totalLength += block.prependVarNumber(totalLength);
+  totalLength += block.prependVarNumber(tlv::Exclude);
+  return totalLength;
+}
+
+template size_t
+Exclude::wireEncode<true>(EncodingImpl<true>& block) const;
+
+template size_t
+Exclude::wireEncode<false>(EncodingImpl<false>& block) const;
+
+const Block&
+Exclude::wireEncode() const
+{
+  if (m_wire.hasWire())
+    return m_wire;
+
+  EncodingEstimator estimator;
+  size_t estimatedSize = wireEncode(estimator);
+
+  EncodingBuffer buffer(estimatedSize, 0);
+  wireEncode(buffer);
+
+  m_wire = buffer.block();
+  return m_wire;
+}
+
+void
+Exclude::wireDecode(const Block& wire)
+{
+  clear();
+
+  if (wire.type() != tlv::Exclude)
+    throw tlv::Error("Unexpected TLV type when decoding Exclude");
+
+  m_wire = wire;
+  m_wire.parse();
+
+  if (m_wire.elements_size() == 0) {
+    throw Error("Exclude element cannot be empty");
+  }
+
+  // Exclude ::= EXCLUDE-TYPE TLV-LENGTH Any? (NameComponent (Any)?)+
+  // Any     ::= ANY-TYPE TLV-LENGTH(=0)
+
+  Block::element_const_iterator i = m_wire.elements_begin();
+  if (i->type() == tlv::Any)
+    {
+      appendExclude(name::Component(), true);
+      ++i;
+    }
+
+  while (i != m_wire.elements_end())
+    {
+      if (i->type() != tlv::NameComponent)
+        throw Error("Incorrect format of Exclude filter");
+
+      name::Component excludedComponent(i->value(), i->value_size());
+      ++i;
+
+      if (i != m_wire.elements_end())
+        {
+          if (i->type() == tlv::Any)
+            {
+              appendExclude(excludedComponent, true);
+              ++i;
+            }
+          else
+            {
+              appendExclude(excludedComponent, false);
+            }
+        }
+      else
+        {
+          appendExclude(excludedComponent, false);
+        }
+    }
 }
 
 // example: ANY /b /d ANY /f
@@ -64,10 +176,10 @@ Exclude::excludeOne(const name::Component& comp)
   if (!isExcluded(comp))
     {
       m_exclude.insert(std::make_pair(comp, false));
+      m_wire.reset();
     }
   return *this;
 }
-
 
 // example: ANY /b0 /d0 ANY /f0
 //
@@ -127,6 +239,7 @@ Exclude::excludeRange(const name::Component& from, const name::Component& to)
 
   m_exclude.erase(newTo, newFrom); // remove any intermediate node, since all of the are excluded
 
+  m_wire.reset();
   return *this;
 }
 
@@ -150,9 +263,9 @@ Exclude::excludeAfter(const name::Component& from)
     m_exclude.erase(m_exclude.begin(), newFrom);
   }
 
+  m_wire.reset();
   return *this;
 }
-
 
 std::ostream&
 operator<<(std::ostream& os, const Exclude& exclude)
@@ -173,5 +286,23 @@ operator<<(std::ostream& os, const Exclude& exclude)
   return os;
 }
 
+std::string
+Exclude::toUri() const
+{
+  std::ostringstream os;
+  os << *this;
+  return os.str();
+}
+
+bool
+Exclude::operator==(const Exclude& other) const
+{
+  if (empty() && other.empty())
+    return true;
+  if (empty() || other.empty())
+    return false;
+
+  return wireEncode() == other.wireEncode();
+}
 
 } // namespace ndn

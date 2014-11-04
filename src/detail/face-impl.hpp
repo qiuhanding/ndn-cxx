@@ -36,6 +36,7 @@
 #include "transport/tcp-transport.hpp"
 
 #include "management/nfd-controller.hpp"
+#include "management/nfd-command-options.hpp"
 
 namespace ndn {
 
@@ -137,6 +138,27 @@ public:
     m_pendingInterestTable.remove_if(MatchPendingInterestId(pendingInterestId));
   }
 
+  void
+  asyncPutData(const shared_ptr<const Data>& data)
+  {
+    if (!m_face.m_transport->isConnected())
+      m_face.m_transport->connect(*m_face.m_ioService,
+                                  bind(&Face::onReceiveElement, &m_face, _1));
+
+    if (!m_face.m_transport->isExpectingData())
+      m_face.m_transport->resume();
+
+    if (!data->getLocalControlHeader().empty(false, true))
+      {
+        m_face.m_transport->send(data->getLocalControlHeader().wireEncode(*data, false, true),
+                                 data->wireEncode());
+      }
+    else
+      {
+        m_face.m_transport->send(data->wireEncode());
+      }
+  }
+
   /////////////////////////////////////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -161,50 +183,51 @@ public:
   /////////////////////////////////////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////////////////////////
 
-  template<class SignatureGenerator>
   const RegisteredPrefixId*
   registerPrefix(const Name& prefix,
                  const shared_ptr<InterestFilterRecord>& filter,
                  const RegisterPrefixSuccessCallback& onSuccess,
                  const RegisterPrefixFailureCallback& onFailure,
-                 const SignatureGenerator& signatureGenerator)
+                 uint64_t flags,
+                 const nfd::CommandOptions& options)
   {
     using namespace nfd;
 
-    typedef void (nfd::Controller::*Registrator)
-      (const nfd::ControlParameters&,
-       const nfd::Controller::CommandSucceedCallback&,
-       const nfd::Controller::CommandFailCallback&,
-       const SignatureGenerator&,
-       const time::milliseconds&);
+    typedef void (Controller::*Registrator)
+      (const ControlParameters&,
+       const Controller::CommandSucceedCallback&,
+       const Controller::CommandFailCallback&,
+       const CommandOptions&);
+
+    ControlParameters registerParameters, unregisterParameters;
+    registerParameters.setName(prefix);
+    unregisterParameters.setName(prefix);
 
     Registrator registrator, unregistrator;
     if (!m_face.m_isDirectNfdFibManagementRequested) {
       registrator = static_cast<Registrator>(&Controller::start<RibRegisterCommand>);
       unregistrator = static_cast<Registrator>(&Controller::start<RibUnregisterCommand>);
+
+      registerParameters.setFlags(flags);
     }
     else {
       registrator = static_cast<Registrator>(&Controller::start<FibAddNextHopCommand>);
       unregistrator = static_cast<Registrator>(&Controller::start<FibRemoveNextHopCommand>);
     }
 
-    ControlParameters parameters;
-    parameters.setName(prefix);
-
     RegisteredPrefix::Unregistrator bindedUnregistrator =
-      bind(unregistrator, m_face.m_nfdController, parameters, _1, _2,
-           signatureGenerator,
-           m_face.m_nfdController->getDefaultCommandTimeout());
+        std::bind(unregistrator, m_face.m_nfdController, unregisterParameters, _1, _2,
+                  options);
+    // @todo get rid of "std::" after #2109
 
     shared_ptr<RegisteredPrefix> prefixToRegister =
-      ndn::make_shared<RegisteredPrefix>(prefix, filter, bindedUnregistrator);
+      make_shared<RegisteredPrefix>(prefix, filter, bindedUnregistrator);
 
-    ((*m_face.m_nfdController).*registrator)(parameters,
+    ((*m_face.m_nfdController).*registrator)(registerParameters,
                                              bind(&Impl::afterPrefixRegistered, this,
                                                   prefixToRegister, onSuccess),
                                              bind(onFailure, prefixToRegister->getPrefix(), _2),
-                                             signatureGenerator,
-                                             m_face.m_nfdController->getDefaultCommandTimeout());
+                                             options);
 
     return reinterpret_cast<const RegisteredPrefixId*>(prefixToRegister.get());
   }
@@ -245,8 +268,11 @@ public:
         (*i)->unregister(bind(&Impl::finalizeUnregisterPrefix, this, i, onSuccess),
                          bind(onFailure, _2));
       }
-    else
-      onFailure("Unrecognized PrefixId");
+    else {
+      if (static_cast<bool>(onFailure)) {
+        onFailure("Unrecognized PrefixId");
+      }
+    }
 
     // there cannot be two registered prefixes with the same id
   }

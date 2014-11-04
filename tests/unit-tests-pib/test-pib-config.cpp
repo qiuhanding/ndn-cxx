@@ -20,6 +20,7 @@
  */
 
 #include "pib/pib-config.hpp"
+#include <boost/filesystem.hpp>
 
 #include "boost-test.hpp"
 

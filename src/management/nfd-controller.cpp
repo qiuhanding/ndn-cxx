@@ -21,14 +21,78 @@
 
 #include "nfd-controller.hpp"
 #include "nfd-control-response.hpp"
-#include "../security/identity-certificate.hpp"
 
 namespace ndn {
 namespace nfd {
 
+const uint32_t Controller::ERROR_TIMEOUT = 10060;
+const uint32_t Controller::ERROR_SERVER = 500;
+const uint32_t Controller::ERROR_LBOUND = 400;
+
 Controller::Controller(Face& face)
   : m_face(face)
+  , m_internalKeyChain(make_shared<KeyChain>())
+  , m_keyChain(*m_internalKeyChain)
 {
+}
+
+Controller::Controller(Face& face, KeyChain& keyChain)
+  : m_face(face)
+  , m_keyChain(keyChain)
+{
+}
+
+void
+Controller::startCommand(const shared_ptr<ControlCommand>& command,
+                         const ControlParameters& parameters,
+                         const CommandSucceedCallback& onSuccess,
+                         const CommandFailCallback& onFailure,
+                         const CommandOptions& options)
+{
+  Name requestName = command->getRequestName(options.getPrefix(), parameters);
+  Interest interest(requestName);
+  interest.setInterestLifetime(options.getTimeout());
+
+  switch (options.getSigningParamsKind()) {
+  case CommandOptions::SIGNING_PARAMS_DEFAULT:
+    m_keyChain.sign(interest);
+    break;
+  case CommandOptions::SIGNING_PARAMS_IDENTITY:
+    m_keyChain.signByIdentity(interest, options.getSigningIdentity());
+    break;
+  case CommandOptions::SIGNING_PARAMS_CERTIFICATE:
+    m_keyChain.sign(interest, options.getSigningCertificate());
+    break;
+  default:
+    BOOST_ASSERT(false);
+    break;
+  }
+
+  m_face.expressInterest(interest,
+                         bind(&Controller::processCommandResponse, this, _2,
+                              command, onSuccess, onFailure),
+                         bind(onFailure, ERROR_TIMEOUT, "request timed out"));
+}
+
+void
+Controller::startCommand(const shared_ptr<ControlCommand>& command,
+                         const ControlParameters& parameters,
+                         const CommandSucceedCallback& onSuccess,
+                         const CommandFailCallback& onFailure,
+                         const Sign& sign,
+                         const time::milliseconds& timeout)
+{
+  BOOST_ASSERT(timeout > time::milliseconds::zero());
+
+  Name requestName = command->getRequestName(parameters);
+  Interest interest(requestName);
+  interest.setInterestLifetime(timeout);
+  sign(interest);
+
+  m_face.expressInterest(interest,
+                         bind(&Controller::processCommandResponse, this, _2,
+                              command, onSuccess, onFailure),
+                         bind(onFailure, ERROR_TIMEOUT, "request timed out"));
 }
 
 void
@@ -39,21 +103,18 @@ Controller::processCommandResponse(const Data& data,
 {
   /// \todo verify Data signature
 
-  const uint32_t serverErrorCode = 500;
-
   ControlResponse response;
   try {
     response.wireDecode(data.getContent().blockFromValue());
   }
-  catch (ndn::Tlv::Error& e) {
+  catch (tlv::Error& e) {
     if (static_cast<bool>(onFailure))
-      onFailure(serverErrorCode, e.what());
+      onFailure(ERROR_SERVER, e.what());
     return;
   }
 
   uint32_t code = response.getCode();
-  const uint32_t errorCodeLowerBound = 400;
-  if (code >= errorCodeLowerBound) {
+  if (code >= ERROR_LBOUND) {
     if (static_cast<bool>(onFailure))
       onFailure(code, response.getText());
     return;
@@ -63,9 +124,9 @@ Controller::processCommandResponse(const Data& data,
   try {
     parameters.wireDecode(response.getBody());
   }
-  catch (ndn::Tlv::Error& e) {
+  catch (tlv::Error& e) {
     if (static_cast<bool>(onFailure))
-      onFailure(serverErrorCode, e.what());
+      onFailure(ERROR_SERVER, e.what());
     return;
   }
 
@@ -74,7 +135,7 @@ Controller::processCommandResponse(const Data& data,
   }
   catch (ControlCommand::ArgumentError& e) {
     if (static_cast<bool>(onFailure))
-      onFailure(serverErrorCode, e.what());
+      onFailure(ERROR_SERVER, e.what());
     return;
   }
 

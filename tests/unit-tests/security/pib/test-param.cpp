@@ -71,7 +71,7 @@ BOOST_AUTO_TEST_CASE(GetParamEndec)
   BOOST_REQUIRE_NO_THROW(param3.wireDecode(paramBlock3));
 
   BOOST_CHECK_EQUAL(param3.getTargetType(), TYPE_USER);
-  BOOST_CHECK_THROW(param3.getTargetName(), Tlv::Error);
+  BOOST_CHECK_THROW(param3.getTargetName(), tlv::Error);
 
   GetParam param4;
   Block paramBlock4 = param4.wireEncode();
@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE(GetParamEndec)
 BOOST_AUTO_TEST_CASE(GetParamEndecError)
 {
   GetParam wrongParam(TYPE_DEFAULT, Name("/test/key"));
-  BOOST_CHECK_THROW(wrongParam.wireEncode(), Tlv::Error);
+  BOOST_CHECK_THROW(wrongParam.wireEncode(), tlv::Error);
 
   GetParam param;
 
@@ -94,7 +94,7 @@ BOOST_AUTO_TEST_CASE(GetParamEndecError)
         0x00, // USER
   };
   Block wrongParamBlock1(wrongParamData1, sizeof(wrongParamData1));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock1), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock1), tlv::Error);
 
   const uint8_t wrongParamData2[] = {
     0x80, 0x03, // GetParam
@@ -102,7 +102,7 @@ BOOST_AUTO_TEST_CASE(GetParamEndecError)
         0x00, // USER
   };
   Block wrongParamBlock2(wrongParamData2, sizeof(wrongParamData2));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock2), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock2), tlv::Error);
 
   const uint8_t wrongParamData3[] = {
     0x80, 0x10, // GetParam
@@ -115,7 +115,7 @@ BOOST_AUTO_TEST_CASE(GetParamEndecError)
           0x6b, 0x65, 0x79
   };
   Block wrongParamBlock3(wrongParamData3, sizeof(wrongParamData3));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock3), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock3), tlv::Error);
 }
 
 BOOST_AUTO_TEST_CASE(DefaultParamEndec)
@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE(DefaultParamEndec)
 
   BOOST_CHECK_EQUAL(param3.getTargetType(), TYPE_CERT);
   BOOST_CHECK_EQUAL(param3.getOriginType(), TYPE_USER);
-  BOOST_CHECK_THROW(param3.getOriginName(), Tlv::Error);
+  BOOST_CHECK_THROW(param3.getOriginName(), tlv::Error);
 
   DefaultParam param4(TYPE_CERT, TYPE_USER);
   Block paramBlock4 = param4.wireEncode();
@@ -174,7 +174,7 @@ BOOST_AUTO_TEST_CASE(DefaultParamEndec)
 BOOST_AUTO_TEST_CASE(DefaultParamEndecError)
 {
   DefaultParam wrongParam(TYPE_CERT, TYPE_DEFAULT);
-  BOOST_CHECK_THROW(wrongParam.wireEncode(), Tlv::Error);
+  BOOST_CHECK_THROW(wrongParam.wireEncode(), tlv::Error);
 
   DefaultParam param;
 
@@ -186,7 +186,7 @@ BOOST_AUTO_TEST_CASE(DefaultParamEndecError)
         0x00 // USER
   };
   Block wrongParamBlock1(wrongParamData1, sizeof(wrongParamData1));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock1), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock1), tlv::Error);
 
   const uint8_t wrongParamData2[] = {
     0x81, 0x06, // DefaultParam
@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE(DefaultParamEndecError)
         0x00 // USER
   };
   Block wrongParamBlock2(wrongParamData2, sizeof(wrongParamData2));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock2), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock2), tlv::Error);
 
   const uint8_t wrongParamData3[] = {
     0x81, 0x06, // DefaultParam
@@ -206,7 +206,7 @@ BOOST_AUTO_TEST_CASE(DefaultParamEndecError)
         0x00 // USER
   };
   Block wrongParamBlock3(wrongParamData3, sizeof(wrongParamData3));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock3), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock3), tlv::Error);
 
   const uint8_t wrongParamData4[] = {
     0x81, 0x13, // DefaultParam
@@ -221,7 +221,7 @@ BOOST_AUTO_TEST_CASE(DefaultParamEndecError)
           0x6b, 0x65, 0x79
   };
   Block wrongParamBlock4(wrongParamData4, sizeof(wrongParamData4));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock4), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock4), tlv::Error);
 }
 
 BOOST_AUTO_TEST_CASE(ListParamEndec)
@@ -261,7 +261,7 @@ BOOST_AUTO_TEST_CASE(ListParamEndec)
   BOOST_REQUIRE_NO_THROW(param3.wireDecode(paramBlock3));
 
   BOOST_CHECK_EQUAL(param3.getOriginType(), TYPE_USER);
-  BOOST_CHECK_THROW(param3.getOriginName(), Tlv::Error);
+  BOOST_CHECK_THROW(param3.getOriginName(), tlv::Error);
 
   ListParam param4;
   Block paramBlock4 = param4.wireEncode();
@@ -274,7 +274,7 @@ BOOST_AUTO_TEST_CASE(ListParamEndec)
 BOOST_AUTO_TEST_CASE(ListParamEndecError)
 {
   ListParam wrongParam(TYPE_DEFAULT, Name("/test/key"));
-  BOOST_CHECK_THROW(wrongParam.wireEncode(), Tlv::Error);
+  BOOST_CHECK_THROW(wrongParam.wireEncode(), tlv::Error);
 
   ListParam param;
 
@@ -284,7 +284,7 @@ BOOST_AUTO_TEST_CASE(ListParamEndecError)
         0x00, // USER
   };
   Block wrongParamBlock1(wrongParamData1, sizeof(wrongParamData1));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock1), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock1), tlv::Error);
 
   const uint8_t wrongParamData2[] = {
     0x82, 0x03, // DefaultParam
@@ -292,7 +292,7 @@ BOOST_AUTO_TEST_CASE(ListParamEndecError)
         0x00, // USER
   };
   Block wrongParamBlock2(wrongParamData2, sizeof(wrongParamData2));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock2), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock2), tlv::Error);
 
   const uint8_t wrongParamData3[] = {
     0x82, 0x10, // ListParam
@@ -305,7 +305,7 @@ BOOST_AUTO_TEST_CASE(ListParamEndecError)
           0x6b, 0x65, 0x79
   };
   Block wrongParamBlock3(wrongParamData3, sizeof(wrongParamData3));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock3), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock3), tlv::Error);
 }
 
 BOOST_AUTO_TEST_CASE(UpdateParamEndec)
@@ -327,9 +327,9 @@ BOOST_AUTO_TEST_CASE(UpdateParamEndec)
   BOOST_CHECK_EQUAL(param1.getEntityType(), static_cast<uint32_t>(tlv::pib::Identity));
   BOOST_CHECK_EQUAL(param1.getIdentity().getIdentity(), Name("/test"));
   BOOST_CHECK_EQUAL(param1.getDefaultOpt(), DEFAULT_OPT_USER);
-  BOOST_CHECK_THROW(param1.getPublicKey(), Tlv::Error);
-  BOOST_CHECK_THROW(param1.getCertificate(), Tlv::Error);
-  BOOST_CHECK_THROW(param1.getUser(), Tlv::Error);
+  BOOST_CHECK_THROW(param1.getPublicKey(), tlv::Error);
+  BOOST_CHECK_THROW(param1.getCertificate(), tlv::Error);
+  BOOST_CHECK_THROW(param1.getUser(), tlv::Error);
 
   UpdateParam param2(Name("/test"), DEFAULT_OPT_USER);
   Block paramBlock2 = param2.wireEncode();
@@ -384,9 +384,9 @@ BOOST_AUTO_TEST_CASE(UpdateParamEndec)
   BOOST_REQUIRE_NO_THROW(param3.getPublicKey());
   BOOST_CHECK_EQUAL(param3.getPublicKey().getKeyName(), Name("/test/key"));
   BOOST_CHECK_EQUAL(param3.getDefaultOpt(), DEFAULT_OPT_NO);
-  BOOST_CHECK_THROW(param3.getIdentity(), Tlv::Error);
-  BOOST_CHECK_THROW(param3.getCertificate(), Tlv::Error);
-  BOOST_CHECK_THROW(param3.getUser(), Tlv::Error);
+  BOOST_CHECK_THROW(param3.getIdentity(), tlv::Error);
+  BOOST_CHECK_THROW(param3.getCertificate(), tlv::Error);
+  BOOST_CHECK_THROW(param3.getUser(), tlv::Error);
 
   const PublicKey& decodedKey = param3.getPublicKey().getPublicKey();
   BOOST_CHECK_EQUAL_COLLECTIONS(decodedKey.get().buf(),
@@ -470,9 +470,9 @@ BOOST_AUTO_TEST_CASE(UpdateParamEndec)
   BOOST_CHECK_EQUAL(param5.getEntityType(), static_cast<uint32_t>(tlv::pib::Certificate));
   BOOST_REQUIRE_NO_THROW(param5.getCertificate());
   BOOST_CHECK_EQUAL(param5.getDefaultOpt(), DEFAULT_OPT_ID);
-  BOOST_CHECK_THROW(param5.getIdentity(), Tlv::Error);
-  BOOST_CHECK_THROW(param5.getPublicKey(), Tlv::Error);
-  BOOST_CHECK_THROW(param5.getUser(), Tlv::Error);
+  BOOST_CHECK_THROW(param5.getIdentity(), tlv::Error);
+  BOOST_CHECK_THROW(param5.getPublicKey(), tlv::Error);
+  BOOST_CHECK_THROW(param5.getUser(), tlv::Error);
 
   const IdentityCertificate& decodedCert = param5.getCertificate().getCertificate();
   BOOST_CHECK_EQUAL_COLLECTIONS(decodedCert.wireEncode().wire(),
@@ -526,9 +526,9 @@ BOOST_AUTO_TEST_CASE(UpdateParamEndec)
   BOOST_CHECK_EQUAL(param7.getEntityType(), static_cast<uint32_t>(tlv::pib::User));
   BOOST_REQUIRE_NO_THROW(param7.getUser());
   BOOST_CHECK_EQUAL(param7.getDefaultOpt(), DEFAULT_OPT_NO);
-  BOOST_CHECK_THROW(param7.getIdentity(), Tlv::Error);
-  BOOST_CHECK_THROW(param7.getPublicKey(), Tlv::Error);
-  BOOST_CHECK_THROW(param7.getCertificate(), Tlv::Error);
+  BOOST_CHECK_THROW(param7.getIdentity(), tlv::Error);
+  BOOST_CHECK_THROW(param7.getPublicKey(), tlv::Error);
+  BOOST_CHECK_THROW(param7.getCertificate(), tlv::Error);
 
   const IdentityCertificate& decodedCert7 = param7.getUser().getMgmtCert();
   BOOST_CHECK_EQUAL_COLLECTIONS(decodedCert7.wireEncode().wire(),
@@ -550,7 +550,7 @@ BOOST_AUTO_TEST_CASE(UpdateParamEndec)
 BOOST_AUTO_TEST_CASE(UpdateParamEndecError)
 {
   UpdateParam wrongParam;
-  BOOST_CHECK_THROW(wrongParam.wireEncode(), Tlv::Error);
+  BOOST_CHECK_THROW(wrongParam.wireEncode(), tlv::Error);
 
   UpdateParam param;
 
@@ -564,7 +564,7 @@ BOOST_AUTO_TEST_CASE(UpdateParamEndecError)
         0x01 // USER_DEFAULT
   };
   Block wrongParamBlock1(wrongParamData1, sizeof(wrongParamData1));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock1), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock1), tlv::Error);
 
   const uint8_t wrongParamData2[] = {
     0x83, 0x0d, // UpdateParam
@@ -576,7 +576,7 @@ BOOST_AUTO_TEST_CASE(UpdateParamEndecError)
         0x01 // USER_DEFAULT
   };
   Block wrongParamBlock2(wrongParamData2, sizeof(wrongParamData2));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock2), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock2), tlv::Error);
 
   const uint8_t wrongParamData3[] = {
     0x83, 0x0d, // UpdateParam
@@ -588,7 +588,7 @@ BOOST_AUTO_TEST_CASE(UpdateParamEndecError)
         0x01 // USER_DEFAULT
   };
   Block wrongParamBlock3(wrongParamData3, sizeof(wrongParamData3));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock3), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock3), tlv::Error);
 
   const uint8_t wrongParamData4[] = {
     0x83, 0x0d, // UpdateParam
@@ -600,7 +600,7 @@ BOOST_AUTO_TEST_CASE(UpdateParamEndecError)
         0x01 // USER_DEFAULT
   };
   Block wrongParamBlock4(wrongParamData4, sizeof(wrongParamData4));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock4), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock4), tlv::Error);
 }
 
 BOOST_AUTO_TEST_CASE(DeleteParamEndec)
@@ -632,7 +632,7 @@ BOOST_AUTO_TEST_CASE(DeleteParamEndec)
 BOOST_AUTO_TEST_CASE(DeleteParamEndecError)
 {
   DeleteParam wrongParam(Name("/test"), 255);
-  BOOST_CHECK_THROW(wrongParam.wireEncode(), Tlv::Error);
+  BOOST_CHECK_THROW(wrongParam.wireEncode(), tlv::Error);
 
   DeleteParam param;
 
@@ -645,7 +645,7 @@ BOOST_AUTO_TEST_CASE(DeleteParamEndecError)
           0x74, 0x65, 0x73, 0x74
   };
   Block wrongParamBlock1(wrongParamData1, sizeof(wrongParamData1));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock1), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock1), tlv::Error);
 
   const uint8_t wrongParamData2[] = {
     0x84, 0x0b, // DeleteParam
@@ -656,7 +656,7 @@ BOOST_AUTO_TEST_CASE(DeleteParamEndecError)
           0x74, 0x65, 0x73, 0x74
   };
   Block wrongParamBlock2(wrongParamData2, sizeof(wrongParamData2));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock2), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock2), tlv::Error);
 
   const uint8_t wrongParamData3[] = {
     0x84, 0x0b, // DeleteParam
@@ -667,7 +667,7 @@ BOOST_AUTO_TEST_CASE(DeleteParamEndecError)
           0x74, 0x65, 0x73, 0x74
   };
   Block wrongParamBlock3(wrongParamData3, sizeof(wrongParamData3));
-  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock3), Tlv::Error);
+  BOOST_CHECK_THROW(param.wireDecode(wrongParamBlock3), tlv::Error);
 }
 
 BOOST_AUTO_TEST_CASE(PibNameListEndec)

@@ -21,11 +21,12 @@
 
 #include "face.hpp"
 #include "util/scheduler.hpp"
+#include "security/key-chain.hpp"
 
 #include "boost-test.hpp"
 
 namespace ndn {
-
+namespace tests {
 
 class FacesFixture
 {
@@ -135,6 +136,20 @@ BOOST_AUTO_TEST_CASE(Unix)
                                 time::milliseconds(50)),
                        bind(&FacesFixture::onData, this),
                        bind(&FacesFixture::onTimeout, this));
+
+  Name veryLongName;
+  for (size_t i = 0; i <= MAX_NDN_PACKET_SIZE / 10; i++)
+    {
+      veryLongName.append("0123456789");
+    }
+
+  BOOST_CHECK_THROW(face.expressInterest(veryLongName, OnData(), OnTimeout()), Face::Error);
+
+  shared_ptr<Data> data = make_shared<Data>(veryLongName);
+  data->setContent(reinterpret_cast<const uint8_t*>("01234567890"), 10);
+  KeyChain keyChain;
+  keyChain.sign(*data);
+  BOOST_CHECK_THROW(face.put(*data), Face::Error);
 
   BOOST_REQUIRE_NO_THROW(face.processEvents());
 
@@ -476,6 +491,8 @@ BOOST_FIXTURE_TEST_CASE(SetRegexFilterAndRegister, FacesFixture3)
   BOOST_CHECK_EQUAL(nInInterests, 2);
   BOOST_CHECK_EQUAL(nTimeouts, 4);
 }
+
 BOOST_AUTO_TEST_SUITE_END()
 
+} // tests
 } // namespace ndn

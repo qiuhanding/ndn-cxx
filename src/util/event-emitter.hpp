@@ -48,7 +48,8 @@
 #ifndef NDN_UTIL_EVENT_EMITTER_HPP
 #define NDN_UTIL_EVENT_EMITTER_HPP
 
-#include "common.hpp"
+#include "../common.hpp"
+#include <vector>
 
 namespace ndn {
 namespace util {
@@ -61,14 +62,14 @@ struct empty
  *  \brief provides a lightweight event system
  *
  *  To declare an event:
- *    EventEmitter<TArgs> eventName;
+ *    EventEmitter<TArgs> onEventName;
  *  To subscribe to an event:
- *    eventSource->m_eventName += eventHandler;
+ *    eventSource->onEventName += eventHandler;
  *    Multiple functions can subscribe to the same event.
  *  To trigger an event:
- *    m_eventName(args);
+ *    onEventName(args);
  *  To clear event subscriptions:
- *    m_eventName.clear();
+ *    onEventName.clear();
  */
 
 // four arguments
@@ -225,6 +226,8 @@ EventEmitter<empty, empty, empty, empty>::operator()()
   std::vector<Handler>::iterator it;
   for (it = m_handlers.begin(); it != m_handlers.end(); ++it) {
     (*it)();
+    if (m_handlers.empty()) // .clear has been called
+      return;
   }
 }
 
@@ -258,6 +261,8 @@ EventEmitter<T1, empty, empty, empty>::operator()(const T1& a1)
   typename std::vector<Handler>::iterator it;
   for (it = m_handlers.begin(); it != m_handlers.end(); ++it) {
     (*it)(a1);
+    if (m_handlers.empty()) // .clear has been called
+      return;
   }
 }
 
@@ -292,6 +297,8 @@ EventEmitter<T1, T2, empty, empty>::operator()
   typename std::vector<Handler>::iterator it;
   for (it = m_handlers.begin(); it != m_handlers.end(); ++it) {
     (*it)(a1, a2);
+    if (m_handlers.empty()) // .clear has been called
+      return;
   }
 }
 
@@ -326,6 +333,8 @@ EventEmitter<T1, T2, T3, empty>::operator()
   typename std::vector<Handler>::iterator it;
   for (it = m_handlers.begin(); it != m_handlers.end(); ++it) {
     (*it)(a1, a2, a3);
+    if (m_handlers.empty()) // .clear has been called
+      return;
   }
 }
 
@@ -360,6 +369,8 @@ EventEmitter<T1, T2, T3, T4>::operator()
   typename std::vector<Handler>::iterator it;
   for (it = m_handlers.begin(); it != m_handlers.end(); ++it) {
     (*it)(a1, a2, a3, a4);
+    if (m_handlers.empty()) // .clear has been called
+      return;
   }
 }
 

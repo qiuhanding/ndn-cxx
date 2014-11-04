@@ -31,7 +31,6 @@ BOOST_AUTO_TEST_SUITE(ManagementTestNfdControlCommand)
 BOOST_AUTO_TEST_CASE(FaceCreate)
 {
   FaceCreateCommand command;
-  BOOST_CHECK_EQUAL(command.getPrefix(), "ndn:/localhost/nfd/faces/create");
 
   ControlParameters p1;
   p1.setUri("tcp4://192.0.2.1")
@@ -48,12 +47,17 @@ BOOST_AUTO_TEST_CASE(FaceCreate)
   p3.setUri("tcp4://192.0.2.1")
     .setFaceId(0);
   BOOST_CHECK_THROW(command.validateResponse(p3), ControlCommand::ArgumentError);
+
+  ControlParameters p4;
+  p4.setUri("tcp4://192.0.2.1:6363");
+  Name n4;
+  BOOST_CHECK_NO_THROW(n4 = command.getRequestName("/PREFIX", p4));
+  BOOST_CHECK(Name("ndn:/PREFIX/faces/create").isPrefixOf(n4));
 }
 
 BOOST_AUTO_TEST_CASE(FaceDestroy)
 {
   FaceDestroyCommand command;
-  BOOST_CHECK_EQUAL(command.getPrefix(), "ndn:/localhost/nfd/faces/destroy");
 
   ControlParameters p1;
   p1.setUri("tcp4://192.0.2.1")
@@ -70,17 +74,22 @@ BOOST_AUTO_TEST_CASE(FaceDestroy)
   p3.setFaceId(6);
   BOOST_CHECK_NO_THROW(command.validateRequest(p3));
   BOOST_CHECK_NO_THROW(command.validateResponse(p3));
+  Name n3;
+  BOOST_CHECK_NO_THROW(n3 = command.getRequestName("/PREFIX", p3));
+  BOOST_CHECK(Name("ndn:/PREFIX/faces/destroy").isPrefixOf(n3));
 }
 
 BOOST_AUTO_TEST_CASE(FaceEnableLocalControl)
 {
   FaceEnableLocalControlCommand command;
-  BOOST_CHECK_EQUAL(command.getPrefix(), "ndn:/localhost/nfd/faces/enable-local-control");
 
   ControlParameters p1;
   p1.setLocalControlFeature(LOCAL_CONTROL_FEATURE_INCOMING_FACE_ID);
   BOOST_CHECK_NO_THROW(command.validateRequest(p1));
   BOOST_CHECK_NO_THROW(command.validateResponse(p1));
+  Name n1;
+  BOOST_CHECK_NO_THROW(n1 = command.getRequestName("/PREFIX", p1));
+  BOOST_CHECK(Name("ndn:/PREFIX/faces/enable-local-control").isPrefixOf(n1));
 
   ControlParameters p2;
   p2.setLocalControlFeature(LOCAL_CONTROL_FEATURE_INCOMING_FACE_ID)
@@ -97,12 +106,14 @@ BOOST_AUTO_TEST_CASE(FaceEnableLocalControl)
 BOOST_AUTO_TEST_CASE(FaceDisableLocalControl)
 {
   FaceDisableLocalControlCommand command;
-  BOOST_CHECK_EQUAL(command.getPrefix(), "ndn:/localhost/nfd/faces/disable-local-control");
 
   ControlParameters p1;
   p1.setLocalControlFeature(LOCAL_CONTROL_FEATURE_INCOMING_FACE_ID);
   BOOST_CHECK_NO_THROW(command.validateRequest(p1));
   BOOST_CHECK_NO_THROW(command.validateResponse(p1));
+  Name n1;
+  BOOST_CHECK_NO_THROW(n1 = command.getRequestName("/PREFIX", p1));
+  BOOST_CHECK(Name("ndn:/PREFIX/faces/disable-local-control").isPrefixOf(n1));
 
   ControlParameters p2;
   p2.setLocalControlFeature(LOCAL_CONTROL_FEATURE_INCOMING_FACE_ID)
@@ -119,13 +130,15 @@ BOOST_AUTO_TEST_CASE(FaceDisableLocalControl)
 BOOST_AUTO_TEST_CASE(FibAddNextHop)
 {
   FibAddNextHopCommand command;
-  BOOST_CHECK_EQUAL(command.getPrefix(), "ndn:/localhost/nfd/fib/add-nexthop");
 
   ControlParameters p1;
   p1.setName("ndn:/")
     .setFaceId(22);
   BOOST_CHECK_NO_THROW(command.validateRequest(p1));
   BOOST_CHECK_THROW(command.validateResponse(p1), ControlCommand::ArgumentError);
+  Name n1;
+  BOOST_CHECK_NO_THROW(n1 = command.getRequestName("/PREFIX", p1));
+  BOOST_CHECK(Name("ndn:/PREFIX/fib/add-nexthop").isPrefixOf(n1));
 
   ControlParameters p2;
   p2.setName("ndn:/example")
@@ -148,13 +161,15 @@ BOOST_AUTO_TEST_CASE(FibAddNextHop)
 BOOST_AUTO_TEST_CASE(FibRemoveNextHop)
 {
   FibRemoveNextHopCommand command;
-  BOOST_CHECK_EQUAL(command.getPrefix(), "ndn:/localhost/nfd/fib/remove-nexthop");
 
   ControlParameters p1;
   p1.setName("ndn:/")
     .setFaceId(22);
   BOOST_CHECK_NO_THROW(command.validateRequest(p1));
   BOOST_CHECK_NO_THROW(command.validateResponse(p1));
+  Name n1;
+  BOOST_CHECK_NO_THROW(n1 = command.getRequestName("/PREFIX", p1));
+  BOOST_CHECK(Name("ndn:/PREFIX/fib/remove-nexthop").isPrefixOf(n1));
 
   ControlParameters p2;
   p2.setName("ndn:/example")
@@ -172,13 +187,15 @@ BOOST_AUTO_TEST_CASE(FibRemoveNextHop)
 BOOST_AUTO_TEST_CASE(StrategyChoiceSet)
 {
   StrategyChoiceSetCommand command;
-  BOOST_CHECK_EQUAL(command.getPrefix(), "ndn:/localhost/nfd/strategy-choice/set");
 
   ControlParameters p1;
   p1.setName("ndn:/")
     .setStrategy("ndn:/strategy/P");
   BOOST_CHECK_NO_THROW(command.validateRequest(p1));
   BOOST_CHECK_NO_THROW(command.validateResponse(p1));
+  Name n1;
+  BOOST_CHECK_NO_THROW(n1 = command.getRequestName("/PREFIX", p1));
+  BOOST_CHECK(Name("ndn:/PREFIX/strategy-choice/set").isPrefixOf(n1));
 
   ControlParameters p2;
   p2.setName("ndn:/example");
@@ -189,12 +206,14 @@ BOOST_AUTO_TEST_CASE(StrategyChoiceSet)
 BOOST_AUTO_TEST_CASE(StrategyChoiceUnset)
 {
   StrategyChoiceUnsetCommand command;
-  BOOST_CHECK_EQUAL(command.getPrefix(), "ndn:/localhost/nfd/strategy-choice/unset");
 
   ControlParameters p1;
   p1.setName("ndn:/example");
   BOOST_CHECK_NO_THROW(command.validateRequest(p1));
   BOOST_CHECK_NO_THROW(command.validateResponse(p1));
+  Name n1;
+  BOOST_CHECK_NO_THROW(n1 = command.getRequestName("/PREFIX", p1));
+  BOOST_CHECK(Name("ndn:/PREFIX/strategy-choice/unset").isPrefixOf(n1));
 
   ControlParameters p2;
   p2.setName("ndn:/example")
@@ -211,12 +230,14 @@ BOOST_AUTO_TEST_CASE(StrategyChoiceUnset)
 BOOST_AUTO_TEST_CASE(RibRegister)
 {
   RibRegisterCommand command;
-  BOOST_CHECK_EQUAL(command.getPrefix(), "ndn:/localhost/nfd/rib/register");
 
   ControlParameters p1;
   p1.setName("ndn:/");
   BOOST_CHECK_NO_THROW(command.validateRequest(p1));
   BOOST_CHECK_THROW(command.validateResponse(p1), ControlCommand::ArgumentError);
+  Name n1;
+  BOOST_CHECK_NO_THROW(n1 = command.getRequestName("/PREFIX", p1));
+  BOOST_CHECK(Name("ndn:/PREFIX/rib/register").isPrefixOf(n1));
 
   command.applyDefaultsToRequest(p1);
   BOOST_REQUIRE(p1.hasOrigin());
@@ -225,8 +246,7 @@ BOOST_AUTO_TEST_CASE(RibRegister)
   BOOST_CHECK_EQUAL(p1.getCost(), 0);
   BOOST_REQUIRE(p1.hasFlags());
   BOOST_CHECK_EQUAL(p1.getFlags(), static_cast<uint64_t>(ROUTE_FLAG_CHILD_INHERIT));
-  BOOST_REQUIRE(p1.hasExpirationPeriod());
-  BOOST_CHECK_GT(p1.getExpirationPeriod(), time::hours(240));
+  BOOST_CHECK_EQUAL(p1.hasExpirationPeriod(), false);
 
   ControlParameters p2;
   p2.setName("ndn:/example")
@@ -234,14 +254,13 @@ BOOST_AUTO_TEST_CASE(RibRegister)
     .setCost(6);
   BOOST_CHECK_NO_THROW(command.validateRequest(p2));
   command.applyDefaultsToRequest(p2);
-  BOOST_CHECK_EQUAL(p2.getExpirationPeriod(), time::hours(1));
+  BOOST_CHECK_EQUAL(p2.hasExpirationPeriod(), false);
   BOOST_CHECK_NO_THROW(command.validateResponse(p2));
 }
 
 BOOST_AUTO_TEST_CASE(RibUnregister)
 {
   RibUnregisterCommand command;
-  BOOST_CHECK_EQUAL(command.getPrefix(), "ndn:/localhost/nfd/rib/unregister");
 
   ControlParameters p1;
   p1.setName("ndn:/")
@@ -249,6 +268,9 @@ BOOST_AUTO_TEST_CASE(RibUnregister)
     .setOrigin(ROUTE_ORIGIN_STATIC);
   BOOST_CHECK_NO_THROW(command.validateRequest(p1));
   BOOST_CHECK_NO_THROW(command.validateResponse(p1));
+  Name n1;
+  BOOST_CHECK_NO_THROW(n1 = command.getRequestName("/PREFIX", p1));
+  BOOST_CHECK(Name("ndn:/PREFIX/rib/unregister").isPrefixOf(n1));
 
   ControlParameters p2;
   p2.setName("ndn:/example")
