@@ -24,9 +24,16 @@
 #include "interest.hpp"
 #include "util/random.hpp"
 #include "util/crypto.hpp"
+#include "util/concepts.hpp"
 #include "data.hpp"
 
 namespace ndn {
+
+BOOST_CONCEPT_ASSERT((boost::EqualityComparable<Interest>));
+BOOST_CONCEPT_ASSERT((WireEncodable<Interest>));
+BOOST_CONCEPT_ASSERT((WireDecodable<Interest>));
+static_assert(std::is_base_of<tlv::Error, Interest::Error>::value,
+              "Interest::Error must inherit from tlv::Error");
 
 uint32_t
 Interest::getNonce() const
@@ -120,11 +127,8 @@ Interest::matchesData(const Data& data) const
 
   // check prefix
   if (interestNameLength == fullNameLength) {
-    bool mightEndWithDigest = (interestNameLength > 0) &&
-                              (m_name.get(-1).value_size() == crypto::SHA256_DIGEST_SIZE);
-    if (mightEndWithDigest) {
-      // Interest Name is same length as Data full Name, last component could match digest
-      if (!m_name.isPrefixOf(data.getFullName()))
+    if (m_name.get(-1).isImplicitSha256Digest()) {
+      if (m_name != data.getFullName())
         return false;
     }
     else {
@@ -266,7 +270,7 @@ Interest::wireDecode(const Block& wire)
   //                InterestLifetime?
 
   if (m_wire.type() != tlv::Interest)
-    throw tlv::Error("Unexpected TLV number when decoding Interest");
+    throw Error("Unexpected TLV number when decoding Interest");
 
   // Name
   m_name.wireDecode(m_wire.get(tlv::Name));

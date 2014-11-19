@@ -31,9 +31,6 @@ namespace ndn {
 
 BOOST_AUTO_TEST_SUITE(TestData)
 
-BOOST_CONCEPT_ASSERT((boost::EqualityComparable<Data>));
-BOOST_CONCEPT_ASSERT((boost::EqualityComparable<Signature>));
-
 const uint8_t Content1[] = {0x53, 0x55, 0x43, 0x43, 0x45, 0x53, 0x53, 0x21};
 
 const uint8_t Data1[] = {
@@ -224,11 +221,10 @@ BOOST_FIXTURE_TEST_CASE(Decode, TestDataFixture)
   Block dataBlock(Data1, sizeof(Data1));
 
   ndn::Data d;
-  // BOOST_REQUIRE_NO_THROW
-    (d.wireDecode(dataBlock));
+  BOOST_REQUIRE_NO_THROW(d.wireDecode(dataBlock));
 
   BOOST_REQUIRE_EQUAL(d.getName().toUri(), "/local/ndn/prefix");
-  BOOST_REQUIRE_EQUAL(d.getContentType(), static_cast<uint32_t>(MetaInfo::TYPE_DEFAULT));
+  BOOST_REQUIRE_EQUAL(d.getContentType(), static_cast<uint32_t>(tlv::ContentType_Blob));
   BOOST_REQUIRE_EQUAL(d.getFreshnessPeriod(), time::seconds(10));
 
   BOOST_REQUIRE_EQUAL(std::string(reinterpret_cast<const char*>(d.getContent().value()),
@@ -257,7 +253,7 @@ BOOST_FIXTURE_TEST_CASE(Encode, TestDataFixture)
   // manual data packet creation for now
 
   ndn::Data d(ndn::Name("/local/ndn/prefix"));
-  d.setContentType(MetaInfo::TYPE_DEFAULT);
+  d.setContentType(tlv::ContentType_Blob);
   d.setFreshnessPeriod(time::seconds(10));
 
   d.setContent(Content1, sizeof(Content1));
@@ -347,7 +343,7 @@ BOOST_FIXTURE_TEST_CASE(FullName, DataIdentityFixture)
   // Encoding pipeline
 
   ndn::Data d(ndn::Name("/local/ndn/prefix"));
-  d.setContentType(MetaInfo::TYPE_DEFAULT);
+  d.setContentType(tlv::ContentType_Blob);
   d.setFreshnessPeriod(time::seconds(10));
 
   d.setContent(Content1, sizeof(Content1));
@@ -381,7 +377,7 @@ BOOST_FIXTURE_TEST_CASE(FullName, DataIdentityFixture)
 
   BOOST_CHECK_EQUAL(fullName.toUri(),
     "/local/ndn/prefix/"
-    "%28%BA%D4%B5%27%5B%D3%92%DB%B6p%C7%5C%F0%B6o%13%F7%94+%21%E8%0FU%C0%E8k7GS%A5H");
+    "sha256digest=28bad4b5275bd392dbb670c75cf0b66f13f7942b21e80f55c0e86b374753a548");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

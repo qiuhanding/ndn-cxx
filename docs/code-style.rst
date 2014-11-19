@@ -9,8 +9,8 @@ Based on
     * NDN Platform "C++, C, C#, Java and JavaScript Code Guidelines".
       The original document available at `<http://named-data.net/codebase/platform/documentation/ndn-platform-development-guidelines/cpp-code-guidelines/>`_
 
-1. Code layout and file naming
-------------------------------
+1. Code layout
+--------------
 
 1.1. The code layout should generally follow the GNU coding standard layout for C,
 extended it to C++.
@@ -329,6 +329,70 @@ should take the following form:
         for (T i : range) {
           statements;
         }
+
+1.15. A lambda expression should have the following form:
+
+    .. code-block:: c++
+
+        [&capture1, capture2] (T1 arg1, T2 arg2) {
+          statements;
+        }
+
+        [&capture1, capture2] (T1 arg1, T2 arg2) mutable {
+          statements;
+        }
+
+        [this] (T arg) {
+          statements;
+        }
+
+    If the function has no parameters, ``()`` should be omitted.
+
+    .. code-block:: c++
+
+        [&capture1, capture2] {
+          statements;
+        }
+
+    Capture-all (``[&]`` and ``[=]``) is permitted, but its usage should be minimized.
+    Only use capture-all when it significantly simplifies code and improves readability.
+
+    .. code-block:: c++
+
+        [&] (T arg) {
+          statements;
+        }
+
+        [=] (T arg) {
+          statements;
+        }
+
+    Trailing return type should be omitted. Write them only when compiler cannot deduce
+    return type automatically, or when it improves readability.
+    ``()`` is required by C++ standard when trailing return type is written.
+
+    .. code-block:: c++
+
+        [] (T arg) -> int {
+          statements;
+        }
+
+        [] () -> int {
+          statements;
+        }
+
+    If the function body has only one line, and the whole lambda expression can fit in one line,
+    the following form is also acceptable:
+
+    .. code-block:: c++
+
+        [&capture1, capture2] (T1 arg1, T2 arg2) { statement; }
+
+    No-op can be written in a more compact form:
+
+    .. code-block:: c++
+
+        []{}
 
 2. Naming Conventions
 ---------------------
@@ -914,3 +978,60 @@ the alternative structured counterpart is proven to be less readable.
         }
 
     This is to avoid that the comments break the logical structure of the program.
+
+3.27. Use ``BOOST_ASSERT`` and ``BOOST_ASSERT_MSG`` for runtime assertions.
+
+    .. code-block:: c++
+
+        int x = 1;
+        int y = 2;
+        int z = x + y;
+        BOOST_ASSERT(z - y == x);
+
+    The expression passed to ``BOOST_ASSERT`` MUST NOT have side effects,
+    because it MAY NOT be evaluated in release builds.
+
+3.28. Use ``static_assert`` for static assertions.
+
+    .. code-block:: c++
+
+        class BaseClass
+        {
+        };
+
+        class DerivedClass : public BaseClass
+        {
+        };
+
+        static_assert(std::is_base_of<BaseClass, DerivedClass>::value,
+                      "DerivedClass must inherit from BaseClass");
+
+3.29. ``auto`` type specifier MAY be used for local variables, if a human reader
+      can easily deduce the actual type.
+
+    .. code-block:: c++
+
+        std::vector<int> intVector;
+        auto i = intVector.find(4);
+
+        auto stringSet = std::make_shared<std::set<std::string>>();
+
+    ``auto`` SHOULD NOT be used if a human reader cannot easily deduce the actual type.
+
+    .. code-block:: c++
+
+        auto x = foo(); // BAD if the declaration of foo() isn't nearby
+
+    ``const auto&`` SHOULD be used to represent constant reference types.
+    ``auto&&`` SHOULD be used to represent mutable reference types.
+
+    .. code-block:: c++
+
+        std::list<std::string> strings;
+
+        for (const auto& str : strings) {
+          statements; // cannot modify `str`
+        }
+        for (auto&& str : strings) {
+          statements; // can modify `str`
+        }

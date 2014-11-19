@@ -32,11 +32,21 @@
 
 namespace ndn {
 
+/** @brief practical limit of network layer packet size
+ *
+ *  If a packet is longer than this size, library and application MAY drop it.
+ */
+const size_t MAX_NDN_PACKET_SIZE = 8800;
+
 /**
  * @brief Namespace defining NDN-TLV related constants and procedures
  */
 namespace tlv {
 
+/** @brief represents an error in TLV encoding or decoding
+ *
+ *  Element::Error SHOULD inherit from this Error class.
+ */
 class Error : public std::runtime_error
 {
 public:
@@ -51,6 +61,7 @@ enum {
   Interest      = 5,
   Data          = 6,
   Name          = 7,
+  ImplicitSha256DigestComponent = 1,
   NameComponent = 8,
   Selectors     = 9,
   Nonce         = 10,
@@ -84,14 +95,31 @@ enum SignatureTypeValue {
   SignatureSha256WithEcdsa = 3
 };
 
+/** @brief indicates a possible value of ContentType field
+ */
 enum ContentTypeValue {
-  ContentType_Default = 0,
+  /** @brief indicates content is the actual data bits
+   */
+  ContentType_Blob = 0,
+
+  /** @brief indicates content is another name which identifies actual data content
+   */
   ContentType_Link = 1,
-  ContentType_Key = 2
+
+  /** @brief indicates content is a public key
+   */
+  ContentType_Key = 2,
+
+  /** @brief indicates a producer generated NACK
+   *  @warning Experimental. Not defined in NDN-TLV spec.
+   */
+  ContentType_Nack = 3
 };
 
-/// @deprecated use ContentType instead
-typedef ContentTypeValue ConentType;
+/** @deprecated use ContentType_Blob
+ */
+static const uint32_t DEPRECATED(ContentType_Default) = ContentType_Blob;
+
 
 /**
  * @brief Read VAR-NUMBER in NDN-TLV encoding
@@ -273,9 +301,9 @@ readVarNumber(InputIterator& begin, const InputIterator& end)
 
 template<>
 inline bool
-readVarNumber<std::istream_iterator<uint8_t> >(std::istream_iterator<uint8_t>& begin,
-                                               const std::istream_iterator<uint8_t>& end,
-                                               uint64_t& value)
+readVarNumber<std::istream_iterator<uint8_t>>(std::istream_iterator<uint8_t>& begin,
+                                              const std::istream_iterator<uint8_t>& end,
+                                              uint64_t& value)
 {
   if (begin == end)
     return false;
@@ -540,7 +568,6 @@ writeNonNegativeInteger(std::ostream& os, uint64_t varNumber)
 
 
 } // namespace tlv
-
 } // namespace ndn
 
 #endif // NDN_ENCODING_TLV_HPP

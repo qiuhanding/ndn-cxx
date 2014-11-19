@@ -27,10 +27,19 @@
 
 #include "util/time.hpp"
 #include "util/string-helper.hpp"
+#include "util/concepts.hpp"
 #include "encoding/block.hpp"
 #include "encoding/encoding-buffer.hpp"
 
+#include <boost/functional/hash.hpp>
+
 namespace ndn {
+
+BOOST_CONCEPT_ASSERT((boost::EqualityComparable<Name>));
+BOOST_CONCEPT_ASSERT((WireEncodable<Name>));
+BOOST_CONCEPT_ASSERT((WireDecodable<Name>));
+static_assert(std::is_base_of<tlv::Error, Name::Error>::value,
+              "Name::Error must inherit from tlv::Error");
 
 template<bool T>
 size_t
@@ -216,6 +225,19 @@ Name::appendSequenceNumber(uint64_t seqNo)
   return *this;
 }
 
+Name&
+Name::appendImplicitSha256Digest(const ConstBufferPtr& digest)
+{
+  m_nameBlock.push_back(Component::fromImplicitSha256Digest(digest));
+  return *this;
+}
+
+Name&
+Name::appendImplicitSha256Digest(const uint8_t* digest, size_t digestSize)
+{
+  m_nameBlock.push_back(Component::fromImplicitSha256Digest(digest, digestSize));
+  return *this;
+}
 
 Name
 Name::getSubName(size_t iStartComponent, size_t nComponents) const
@@ -334,3 +356,13 @@ operator>>(std::istream& is, Name& name)
 }
 
 } // namespace ndn
+
+namespace std {
+size_t
+hash<ndn::Name>::operator()(const ndn::Name& name) const
+{
+  return boost::hash_range(name.wireEncode().wire(),
+                           name.wireEncode().wire() + name.wireEncode().size());
+}
+
+} // namespace std

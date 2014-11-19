@@ -22,8 +22,15 @@
 #include "data.hpp"
 #include "encoding/block-helpers.hpp"
 #include "util/crypto.hpp"
+#include "util/concepts.hpp"
 
 namespace ndn {
+
+BOOST_CONCEPT_ASSERT((boost::EqualityComparable<Data>));
+BOOST_CONCEPT_ASSERT((WireEncodable<Data>));
+BOOST_CONCEPT_ASSERT((WireDecodable<Data>));
+static_assert(std::is_base_of<tlv::Error, Data::Error>::value,
+              "Data::Error must inherit from tlv::Error");
 
 Data::Data()
   : m_content(tlv::Content) // empty content
@@ -175,7 +182,7 @@ Data::getFullName() const
                   "(e.g., not signed)");
     }
     m_fullName = m_name;
-    m_fullName.append(name::Component(crypto::sha256(m_wire.wire(), m_wire.size())));
+    m_fullName.appendImplicitSha256Digest(crypto::sha256(m_wire.wire(), m_wire.size()));
   }
 
   return m_fullName;

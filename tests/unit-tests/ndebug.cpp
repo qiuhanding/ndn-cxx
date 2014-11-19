@@ -17,35 +17,37 @@
  * <http://www.gnu.org/licenses/>.
  *
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
- *
- * @author Yingdi Yu <http://irl.cs.ucla.edu/~yingdi/>
  */
 
-#ifndef NDN_SECURITY_CONF_COMMON_HPP
-#define NDN_SECURITY_CONF_COMMON_HPP
+#include "common.hpp"
 
-#include "../../common.hpp"
-#include <string>
-#include <boost/property_tree/ptree.hpp>
+#include "boost-test.hpp"
 
 namespace ndn {
-namespace security {
-namespace conf {
+namespace tests {
 
-typedef boost::property_tree::ptree ConfigSection;
+BOOST_AUTO_TEST_SUITE(TestNdebug)
 
-class Error : public std::runtime_error
+BOOST_AUTO_TEST_CASE(AssertFalse)
 {
-public:
-  explicit
-  Error(const std::string& what)
-    : std::runtime_error(what)
-  {
-  }
-};
+#ifndef NDN_CXX__DEBUG
+  // in release builds, assertion shouldn't execute
+  BOOST_ASSERT(false);
+#endif
+}
 
-} // namespace conf
-} // namespace security
+BOOST_AUTO_TEST_CASE(SideEffect)
+{
+  int a = 1;
+  BOOST_ASSERT((a = 2) > 0);
+#ifdef NDN_CXX__DEBUG
+  BOOST_CHECK_EQUAL(a, 2);
+#else
+  BOOST_CHECK_EQUAL(a, 1);
+#endif
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+} // namespace tests
 } // namespace ndn
-
-#endif // NDN_SECURITY_CONF_COMMON_HPP
