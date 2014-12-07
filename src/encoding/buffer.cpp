@@ -17,66 +17,37 @@
  * <http://www.gnu.org/licenses/>.
  *
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
+ *
+ * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
  */
 
-#include "nfd-face-traits.hpp"
+#include "buffer.hpp"
 
 namespace ndn {
-namespace nfd {
 
-std::ostream&
-operator<<(std::ostream& os, FaceScope faceScope)
+#if NDN_CXX_HAVE_IS_MOVE_CONSTRUCTIBLE
+static_assert(std::is_move_constructible<Buffer>::value,
+              "Buffer must be MoveConstructible");
+#endif // NDN_CXX_HAVE_IS_MOVE_CONSTRUCTIBLE
+
+#if NDN_CXX_HAVE_IS_MOVE_ASSIGNABLE
+static_assert(std::is_move_assignable<Buffer>::value,
+              "Buffer must be MoveAssignable");
+#endif // NDN_CXX_HAVE_IS_MOVE_ASSIGNABLE
+
+Buffer::Buffer()
 {
-  switch (faceScope) {
-  case FACE_SCOPE_NON_LOCAL:
-    os << "non-local";
-    break;
-  case FACE_SCOPE_LOCAL:
-    os << "local";
-    break;
-  default:
-    os << "unknown";
-    break;
-  }
-  return os;
 }
 
-std::ostream&
-operator<<(std::ostream& os, FacePersistency facePersistency)
+Buffer::Buffer(size_t size)
+  : std::vector<uint8_t>(size, 0)
 {
-  switch (facePersistency) {
-  case FACE_PERSISTENCY_PERSISTENT:
-    os << "persistent";
-    break;
-  case FACE_PERSISTENCY_ON_DEMAND:
-    os << "on-demand";
-    break;
-  case FACE_PERSISTENCY_PERMANENT:
-    os << "permanent";
-    break;
-  default:
-    os << "unknown";
-    break;
-  }
-  return os;
 }
 
-std::ostream&
-operator<<(std::ostream& os, LinkType linkType)
+Buffer::Buffer(const void* buf, size_t length)
+  : std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(buf),
+                         reinterpret_cast<const uint8_t*>(buf) + length)
 {
-  switch (linkType) {
-  case LINK_TYPE_POINT_TO_POINT:
-    os << "point-to-point";
-    break;
-  case LINK_TYPE_MULTI_ACCESS:
-    os << "multi-access";
-    break;
-  default:
-    os << "unknown";
-    break;
-  }
-  return os;
 }
 
-} // namespace nfd
 } // namespace ndn

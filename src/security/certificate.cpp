@@ -30,8 +30,17 @@
 #include "cryptopp.hpp"
 #include "../encoding/cryptopp/asn_ext.hpp"
 #include "../encoding/buffer-stream.hpp"
+#include "../util/concepts.hpp"
+#include "../util/indented-stream.hpp"
+
+#include <boost/algorithm/string/split.hpp>
 
 namespace ndn {
+
+BOOST_CONCEPT_ASSERT((WireEncodable<Certificate>));
+BOOST_CONCEPT_ASSERT((WireDecodable<Certificate>));
+static_assert(std::is_base_of<tlv::Error, Certificate::Error>::value,
+              "Certificate::Error must inherit from tlv::Error");
 
 Certificate::Certificate()
   : m_notBefore(time::system_clock::TimePoint::max())
@@ -46,9 +55,21 @@ Certificate::Certificate(const Data& data)
   decode();
 }
 
+Certificate::Certificate(const Block& block)
+  : Data(block)
+{
+  decode();
+}
+
 Certificate::~Certificate()
 {
-  //TODO:
+}
+
+void
+Certificate::wireDecode(const Block& wire)
+{
+  Data::wireDecode(wire);
+  decode();
 }
 
 bool
@@ -177,89 +198,161 @@ Certificate::decode()
 {
   using namespace CryptoPP;
 
-  OBufferStream os;
-  StringSource source(getContent().value(), getContent().value_size(), true);
+  try {
+    OBufferStream os;
+    StringSource source(getContent().value(), getContent().value_size(), true);
 
-  // idCert ::= SEQUENCE {
-  //     validity            Validity,
-  //     subject             Name,
-  //     subjectPubKeyInfo   SubjectPublicKeyInfo,
-  //     extension           Extensions OPTIONAL   }
-  BERSequenceDecoder idCert(source);
-  {
-    // Validity ::= SEQUENCE {
-    //       notBefore           Time,
-    //       notAfter            Time   }
-    BERSequenceDecoder validity(idCert);
+    // idCert ::= SEQUENCE {
+    //     validity            Validity,
+    //     subject             Name,
+    //     subjectPubKeyInfo   SubjectPublicKeyInfo,
+    //     extension           Extensions OPTIONAL   }
+    BERSequenceDecoder idCert(source);
     {
-      BERDecodeTime(validity, m_notBefore);
-      BERDecodeTime(validity, m_notAfter);
-    }
-    validity.MessageEnd();
-
-    // Name ::= CHOICE {
-    //     RDNSequence   }
-    //
-    // RDNSequence ::= SEQUENCE OF RelativeDistinguishedName
-    m_subjectDescriptionList.clear();
-    BERSequenceDecoder name(idCert);
-    {
-      while (!name.EndReached())
-        {
-          m_subjectDescriptionList.push_back(CertificateSubjectDescription(name));
-        }
-    }
-    name.MessageEnd();
-
-    // SubjectPublicKeyInfo ::= SEQUENCE {
-    //     algorithm           AlgorithmIdentifier
-    //     keybits             BIT STRING   }
-    m_key.decode(idCert);
-
-    // Extensions ::= SEQUENCE SIZE (1..MAX) OF Extension
-    //
-    // Extension ::= SEQUENCE {
-    //        extnID      OBJECT IDENTIFIER,
-    //        critical    BOOLEAN DEFAULT FALSE,
-    //        extnValue   OCTET STRING  }
-    m_extensionList.clear();
-    if (!idCert.EndReached())
+      // Validity ::= SEQUENCE {
+      //       notBefore           Time,
+      //       notAfter            Time   }
+      BERSequenceDecoder validity(idCert);
       {
-        BERSequenceDecoder extensions(idCert);
-        {
-          while (!extensions.EndReached())
-            {
-              m_extensionList.push_back(CertificateExtension(extensions));
-            }
-        }
-        extensions.MessageEnd();
+        BERDecodeTime(validity, m_notBefore);
+        BERDecodeTime(validity, m_notAfter);
       }
-  }
+      validity.MessageEnd();
 
-  idCert.MessageEnd();
+      // Name ::= CHOICE {
+      //     RDNSequence   }
+      //
+      // RDNSequence ::= SEQUENCE OF RelativeDistinguishedName
+      m_subjectDescriptionList.clear();
+      BERSequenceDecoder name(idCert);
+      {
+        while (!name.EndReached())
+          {
+            m_subjectDescriptionList.push_back(CertificateSubjectDescription(name));
+          }
+      }
+      name.MessageEnd();
+
+      // SubjectPublicKeyInfo ::= SEQUENCE {
+      //     algorithm           AlgorithmIdentifier
+      //     keybits             BIT STRING   }
+      m_key.decode(idCert);
+
+      // Extensions ::= SEQUENCE SIZE (1..MAX) OF Extension
+      //
+      // Extension ::= SEQUENCE {
+      //        extnID      OBJECT IDENTIFIER,
+      //        critical    BOOLEAN DEFAULT FALSE,
+      //        extnValue   OCTET STRING  }
+      m_extensionList.clear();
+      if (!idCert.EndReached())
+        {
+          BERSequenceDecoder extensions(idCert);
+          {
+            while (!extensions.EndReached())
+              {
+                m_extensionList.push_back(CertificateExtension(extensions));
+              }
+          }
+          extensions.MessageEnd();
+        }
+    }
+
+    idCert.MessageEnd();
+  }
+  catch (CryptoPP::BERDecodeErr&) {
+    throw Error("Certificate Decoding Error");
+  }
 }
 
 void
-Certificate::printCertificate(std::ostream& os) const
+Certificate::printCertificate(std::ostream& oss, const std::string& indent) const
 {
-  os << "Certificate name:" << std::endl;
-  os << "  " << getName() << std::endl;
-  os << "Validity:" << std::endl;
+  util::IndentedStream os(oss, indent);
+
+  os << "Certificate name:\n";
+  os << "  " << getName() << "\n";
+  os << "Validity:\n";
   {
-    os << "  NotBefore: " << time::toIsoString(m_notBefore) << std::endl;
-    os << "  NotAfter: "  << time::toIsoString(m_notAfter)  << std::endl;
+    os << "  NotBefore: " << time::toIsoString(m_notBefore) << "\n";
+    os << "  NotAfter: "  << time::toIsoString(m_notAfter)  << "\n";
   }
 
-  os << "Subject Description:" << std::endl;
-  for (SubjectDescriptionList::const_iterator it = m_subjectDescriptionList.begin();
-       it != m_subjectDescriptionList.end(); ++it)
-    {
-      os << "  " << it->getOidString() << ": " << it->getValue() << std::endl;
-    }
+  os << "Subject Description:\n";
+  for (const auto& description : m_subjectDescriptionList)
+    os << "  " << description.getOidString() << ": " << description.getValue() << "\n";
 
-  os << "Public key bits:" << std::endl;
-  CryptoPP::Base64Encoder encoder(new CryptoPP::FileSink(os), true, 64);
-  m_key.encode(encoder);
+  os << "Public key bits: ";
+  switch (m_key.getKeyType()) {
+  case KEY_TYPE_RSA:
+    os << "(RSA)";
+    break;
+  case KEY_TYPE_ECDSA:
+    os << "(ECDSA)";
+    break;
+  default:
+    os << "(Unknown key type)";
+    break;
+  }
+  os << "\n";
+
+  {
+    util::IndentedStream os2(os, "  ");
+    CryptoPP::Base64Encoder encoder(new CryptoPP::FileSink(os2), true, 64);
+    m_key.encode(encoder);
+  }
+
+  os << "Signature Information:\n";
+  {
+    os << "  Signature Type: ";
+    switch (getSignature().getType()) {
+    case tlv::SignatureTypeValue::DigestSha256:
+      os << "DigestSha256";
+      break;
+    case tlv::SignatureTypeValue::SignatureSha256WithRsa:
+      os << "SignatureSha256WithRsa";
+      break;
+    case tlv::SignatureTypeValue::SignatureSha256WithEcdsa:
+      os << "SignatureSha256WithEcdsa";
+      break;
+    default:
+      os << "Unknown Signature Type";
+    }
+    os << "\n";
+
+    if (getSignature().hasKeyLocator()) {
+      const KeyLocator& keyLocator = getSignature().getKeyLocator();
+      os << "  Key Locator: ";
+      switch (keyLocator.getType()) {
+      case KeyLocator::KeyLocator_Name:
+        {
+          const Name& signerName = keyLocator.getName();
+          if (signerName.isPrefixOf(getName()))
+            os << "(Self-Signed) " << keyLocator.getName();
+          else
+            os << "(Name) " << keyLocator.getName();
+          break;
+        }
+      case KeyLocator::KeyLocator_KeyDigest:
+        os << "(KeyDigest)";
+        break;
+      case KeyLocator::KeyLocator_None:
+        os << "None";
+        break;
+      default:
+        os << "Unknown";
+      }
+      os << "\n";
+    }
+  }
 }
+
+std::ostream&
+operator<<(std::ostream& os, const Certificate& cert)
+{
+  cert.printCertificate(os);
+  return os;
+}
+
 
 } // namespace ndn

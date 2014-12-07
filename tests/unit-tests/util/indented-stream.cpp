@@ -19,39 +19,41 @@
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
  */
 
-#ifndef NDN_MANAGEMENT_NFD_RIB_FLAGS_HPP
-#define NDN_MANAGEMENT_NFD_RIB_FLAGS_HPP
+#include "util/indented-stream.hpp"
 
-#include "../encoding/nfd-constants.hpp"
+#include "boost-test.hpp"
+#include <boost/test/output_test_stream.hpp>
+
+using boost::test_tools::output_test_stream;
 
 namespace ndn {
-namespace nfd {
+namespace util {
+namespace tests {
 
-/**
- * \ingroup management
- * \brief implements getters to each RIB flag
- *
- * \tparam T class containing a RibFlags field and implements
- *           `RibFlags getFlags() const` method
- */
-template<typename T>
-class RibFlagsTraits
+BOOST_AUTO_TEST_SUITE(UtilIndentedStream)
+
+BOOST_AUTO_TEST_CASE(Basic)
 {
-public:
-  bool
-  isChildInherit() const
+  output_test_stream os;
+
+  os << "Hello" << std::endl;
   {
-    return static_cast<const T*>(this)->getFlags() & ROUTE_FLAG_CHILD_INHERIT;
+    IndentedStream os1(os, " [prefix] ");
+    os1 << "," << "\n";
+    {
+      IndentedStream os2(os1, " [another prefix] ");
+      os2 << "World!" << "\n";
+    }
   }
 
-  bool
-  isRibCapture() const
-  {
-    return static_cast<const T*>(this)->getFlags() & ROUTE_FLAG_CAPTURE;
-  }
-};
+  BOOST_CHECK(os.is_equal("Hello\n"
+                          " [prefix] ,\n"
+                          " [prefix]  [another prefix] World!\n"
+                          ));
+}
 
-} // namespace nfd
+BOOST_AUTO_TEST_SUITE_END()
+
+} // namespace tests
+} // namespace util
 } // namespace ndn
-
-#endif // NDN_MANAGEMENT_NFD_RIB_FLAGS_HPP

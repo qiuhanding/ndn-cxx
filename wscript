@@ -13,7 +13,7 @@ def options(opt):
     opt.load(['compiler_cxx', 'gnu_dirs', 'c_osx'])
     opt.load(['default-compiler-flags', 'coverage', 'osx-security', 'pch',
               'boost', 'openssl', 'cryptopp', 'sqlite3',
-              'doxygen', 'sphinx_build'],
+              'doxygen', 'sphinx_build', 'type_traits'],
              tooldir=['.waf-tools'])
 
     opt = opt.add_option_group('Library Options')
@@ -40,7 +40,7 @@ def configure(conf):
     conf.load(['compiler_cxx', 'gnu_dirs', 'c_osx',
                'default-compiler-flags', 'osx-security', 'pch',
                'boost', 'openssl', 'cryptopp', 'sqlite3',
-               'doxygen', 'sphinx_build'])
+               'doxygen', 'sphinx_build', 'type_traits'])
 
     conf.env['WITH_TESTS'] = conf.options.with_tests
     conf.env['WITH_TOOLS'] = conf.options.with_tools
@@ -119,7 +119,7 @@ def build(bld):
         target="ndn-cxx",
         name="ndn-cxx",
         source=bld.path.ant_glob('src/**/*.cpp',
-                                   excl=['src/**/*-osx.cpp', 'src/**/*-sqlite3.cpp']),
+                                 excl=['src/**/*-osx.cpp', 'src/**/*-sqlite3.cpp']),
         headers='src/common-pch.hpp',
         use='version BOOST OPENSSL CRYPTOPP SQLITE3 RT PIC PTHREAD',
         includes=". src",
@@ -190,7 +190,11 @@ def build(bld):
     if bld.env['WITH_EXAMPLES']:
         bld.recurse("examples")
 
-    headers = bld.path.ant_glob(['src/**/*.hpp'])
+    headers = bld.path.ant_glob(['src/**/*.hpp'],
+                                 excl=['src/**/*-osx.hpp'])
+    if bld.env['HAVE_OSX_SECURITY']:
+        headers += bld.path.ant_glob('src/**/*-osx.hpp')
+
     bld.install_files("%s/ndn-cxx" % bld.env['INCLUDEDIR'], headers,
                       relative_trick=True, cwd=bld.path.find_node('src'))
 

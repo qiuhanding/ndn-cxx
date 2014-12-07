@@ -19,12 +19,51 @@
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
  */
 
-#ifndef NDN_SECURITY_SIGNATURE_SHA256_HPP
-#define NDN_SECURITY_SIGNATURE_SHA256_HPP
+#include "indented-stream.hpp"
 
-#include "digest-sha256.hpp"
+#include <vector>
 
-///@deprecated
-typedef DigestSha256 SignatureSha256;
+#include <boost/range/iterator_range.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
-#endif //NDN_SECURITY_SIGNATURE_SHA256_HPP
+namespace ndn {
+namespace util {
+
+IndentedStream::IndentedStream(std::ostream& os, const std::string& indent)
+  : std::ostream(&m_buffer)
+  , m_buffer(os, indent)
+{
+}
+
+IndentedStream::~IndentedStream()
+{
+  flush();
+}
+
+IndentedStream::StreamBuf::StreamBuf(std::ostream& os, const std::string& indent)
+  : m_output(os)
+  , m_indent(indent)
+{
+}
+
+int
+IndentedStream::StreamBuf::sync()
+{
+  typedef boost::iterator_range<std::string::const_iterator> StringView;
+
+  const std::string& output = str();
+  std::vector<StringView> splitOutput;
+  boost::split(splitOutput, output, boost::is_any_of("\n"));
+
+  if (!splitOutput.empty() && splitOutput.back().empty()) {
+    splitOutput.pop_back();
+  }
+  for (const StringView& line : splitOutput) {
+    m_output << m_indent << line << "\n";
+  }
+  return 0; // success
+}
+
+} // namespace util
+} // namespace ndn

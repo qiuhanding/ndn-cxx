@@ -17,39 +17,52 @@
  * <http://www.gnu.org/licenses/>.
  *
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
- *
- * @author Yingdi Yu <http://irl.cs.ucla.edu/~yingdi/>
  */
 
-#ifndef NDN_SECURITY_ENCRYPTION_MANAGER_HPP
-#define NDN_SECURITY_ENCRYPTION_MANAGER_HPP
+#ifndef NDN_TESTS_UNIT_TESTS_UNIT_TEST_TIME_FIXTURE_HPP
+#define NDN_TESTS_UNIT_TESTS_UNIT_TEST_TIME_FIXTURE_HPP
 
-#include "../../name.hpp"
-#include "../security-common.hpp"
+#include "util/time-unit-test-clock.hpp"
+#include <boost/asio.hpp>
 
 namespace ndn {
+namespace tests {
 
-class EncryptionManager
+class UnitTestTimeFixture
 {
 public:
-  virtual
-  ~EncryptionManager()
+  UnitTestTimeFixture()
+    : steadyClock(make_shared<time::UnitTestSteadyClock>())
+    , systemClock(make_shared<time::UnitTestSystemClock>())
   {
+    time::setCustomClocks(steadyClock, systemClock);
   }
 
-  virtual void
-  createSymmetricKey(const Name& keyName, KeyType keyType,
-                     const Name& signkeyName = Name(), bool isSymmetric = true) = 0;
+  ~UnitTestTimeFixture()
+  {
+    time::setCustomClocks(nullptr, nullptr);
+  }
 
-  virtual ConstBufferPtr
-  encrypt(const Name& keyName, const uint8_t* data, size_t dataLength, bool useSymmetric = false,
-          EncryptMode encryptMode = ENCRYPT_MODE_DEFAULT) = 0;
+  void
+  advanceClocks(const time::nanoseconds& tick, size_t nTicks = 1)
+  {
+    for (size_t i = 0; i < nTicks; ++i) {
+      steadyClock->advance(tick);
+      systemClock->advance(tick);
 
-  virtual ConstBufferPtr
-  decrypt(const Name& keyName, const uint8_t* data, size_t dataLength, bool useSymmetric = false,
-          EncryptMode encryptMode = ENCRYPT_MODE_DEFAULT) = 0;
+      if (io.stopped())
+        io.reset();
+      io.poll();
+    }
+  }
+
+public:
+  shared_ptr<time::UnitTestSteadyClock> steadyClock;
+  shared_ptr<time::UnitTestSystemClock> systemClock;
+  boost::asio::io_service io;
 };
 
+} // namespace tests
 } // namespace ndn
 
-#endif // NDN_SECURITY_ENCRYPTION_MANAGER_HPP
+#endif // NDN_TESTS_UNIT_TESTS_UNIT_TEST_TIME_FIXTURE_HPP

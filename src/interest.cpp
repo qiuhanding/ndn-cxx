@@ -35,6 +35,46 @@ BOOST_CONCEPT_ASSERT((WireDecodable<Interest>));
 static_assert(std::is_base_of<tlv::Error, Interest::Error>::value,
               "Interest::Error must inherit from tlv::Error");
 
+Interest::Interest()
+  : m_scope(-1)
+  , m_interestLifetime(time::milliseconds::min())
+{
+}
+
+Interest::Interest(const Name& name)
+  : m_name(name)
+  , m_scope(-1)
+  , m_interestLifetime(time::milliseconds::min())
+{
+}
+
+Interest::Interest(const Name& name, const time::milliseconds& interestLifetime)
+  : m_name(name)
+  , m_scope(-1)
+  , m_interestLifetime(interestLifetime)
+{
+}
+
+Interest::Interest(const Name& name,
+                   const Selectors& selectors,
+                   int scope,
+                   const time::milliseconds& interestLifetime,
+                   uint32_t nonce)
+  : m_name(name)
+  , m_selectors(selectors)
+  , m_scope(scope)
+  , m_interestLifetime(interestLifetime)
+{
+  if (nonce > 0) {
+    setNonce(nonce);
+  }
+}
+
+Interest::Interest(const Block& wire)
+{
+  wireDecode(wire);
+}
+
 uint32_t
 Interest::getNonce() const
 {
@@ -152,10 +192,15 @@ Interest::matchesData(const Data& data) const
         return false;
       // There's opportunity to inspect the Exclude filter and determine whether
       // the digest would make a difference.
-      // eg. "Exclude=<Any>AA" won't exclude any digest - fullName not needed
-      //     "Exclude=ZZ<Any>" excludes all digests - fullName not needed
-      //     "Exclude=<Any>80000000000000000000000000000000"
-      //         excludes half of the digests - fullName required
+      // eg. "<NameComponent>AA</NameComponent><Any/>" doesn't exclude any digest -
+      //     fullName not needed;
+      //     "<Any/><NameComponent>AA</NameComponent>" and
+      //     "<Any/><ImplicitSha256DigestComponent>ffffffffffffffffffffffffffffffff
+      //      </ImplicitSha256DigestComponent>"
+      //     excludes all digests - fullName not needed;
+      //     "<Any/><ImplicitSha256DigestComponent>80000000000000000000000000000000
+      //      </ImplicitSha256DigestComponent>"
+      //     excludes some digests - fullName required
       // But Interests that contain the exact Data Name before digest and also
       // contain Exclude filter is too rare to optimize for, so we request
       // fullName no mater what's in the Exclude filter.
@@ -353,4 +398,4 @@ operator<<(std::ostream& os, const Interest& interest)
   return os;
 }
 
-}
+} // namespace ndn

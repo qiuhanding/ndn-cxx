@@ -175,13 +175,13 @@ PibValidator::checkPolicy(const Interest& interest,
     return onValidationFailed(interest.shared_from_this(),
                               "No valid signature");
   }
-  catch (tlv::Error&) {
-    return onValidationFailed(interest.shared_from_this(),
-                              "Cannot decode signature");
-  }
   catch (IdentityCertificate::Error&) {
     return onValidationFailed(interest.shared_from_this(),
                               "Cannot determine the signing key");
+  }
+  catch (tlv::Error&) {
+    return onValidationFailed(interest.shared_from_this(),
+                              "Cannot decode signature");
   }
 }
 

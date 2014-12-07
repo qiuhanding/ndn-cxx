@@ -1,19 +1,19 @@
 ndnsec-key-gen
 ==============
 
-``ndnsec-key-gen`` is tool to generate a pair of RSA key.
+``ndnsec-key-gen`` is tool to generate a pair of key.
 
 Usage
 -----
 
 ::
 
-    $ ndnsec-key-gen [-h] [-n] identity
+    $ ndnsec-key-gen [-h] [-n] [-d] [-t keyType] identity
 
 Description
 -----------
 
-``ndnsec-key-gen`` creates a RSA key pair for the specified ``identity`` and sets the key as the
+``ndnsec-key-gen`` creates a key pair for the specified ``identity`` and sets the key as the
 identity's default key. ``ndnsec-key-gen`` will also create a signing request for the generated key.
 The signing request will be written to standard output in base64 encoding.
 
@@ -24,6 +24,12 @@ Options
 
 ``-n``
   Do not set the identity as the system default identity.
+
+``-d``
+  Generate Data-Signing-Key (DSK) instead of the default Key-Signing-Key (KSK).
+
+``-t keyType``
+  Specify the key type. ``r`` (default) for RSA key. ``e`` for ECDSA key.
 
 Examples
 --------
