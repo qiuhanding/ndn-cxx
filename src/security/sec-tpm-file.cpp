@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -23,9 +23,8 @@
  * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
  */
 
-#include "common.hpp"
-
 #include "sec-tpm-file.hpp"
+
 #include "../encoding/buffer-stream.hpp"
 
 #include <boost/filesystem.hpp>
@@ -44,6 +43,8 @@ using std::string;
 using std::ostringstream;
 using std::ofstream;
 
+const std::string SecTpmFile::SCHEME("tpm-file");
+
 class SecTpmFile::Impl
 {
 public:
@@ -53,7 +54,7 @@ public:
     if (dir.empty())
       m_keystorePath = boost::filesystem::path(getenv("HOME")) / ".ndn" / "ndnsec-tpm-file";
     else
-      m_keystorePath = dir;
+      m_keystorePath = boost::filesystem::path(dir) / ".ndn" / "ndnsec-tpm-file";
 
     boost::filesystem::create_directories(m_keystorePath);
   }
@@ -95,9 +96,14 @@ public:
 };
 
 
-SecTpmFile::SecTpmFile(const string& dir)
-  : m_impl(new Impl(dir))
+SecTpmFile::SecTpmFile(const string& location)
+  : SecTpm(location)
+  , m_impl(new Impl(location))
   , m_inTerminal(false)
+{
+}
+
+SecTpmFile::~SecTpmFile()
 {
 }
 
@@ -148,7 +154,7 @@ SecTpmFile::generateKeyPairInTpm(const Name& keyName, const KeyParams& params)
 
             const EcdsaKeyParams& ecdsaParams = static_cast<const EcdsaKeyParams&>(params);
 
-            OID curveName;
+            CryptoPP::OID curveName;
             switch (ecdsaParams.getKeySize())
               {
               case 256:
@@ -237,6 +243,12 @@ SecTpmFile::getPublicKeyFromTpm(const Name&  keyName)
 
   return make_shared<PublicKey>(reinterpret_cast<const uint8_t*>(os.str().c_str()),
                                 os.str().size());
+}
+
+std::string
+SecTpmFile::getScheme()
+{
+  return SCHEME;
 }
 
 ConstBufferPtr

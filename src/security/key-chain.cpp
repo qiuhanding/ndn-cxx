@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -23,15 +23,16 @@
 
 #include "key-chain.hpp"
 
+#include "../util/random.hpp"
+#include "../util/config-file.hpp"
+
 #include "sec-public-info-sqlite3.hpp"
-#include "sec-tpm-file.hpp"
 
 #ifdef NDN_CXX_HAVE_OSX_SECURITY
 #include "sec-tpm-osx.hpp"
-#endif
+#endif // NDN_CXX_HAVE_OSX_SECURITY
 
-#include "../util/random.hpp"
-#include "../util/config-file.hpp"
+#include "sec-tpm-file.hpp"
 
 namespace ndn {
 
@@ -40,95 +41,173 @@ const Name KeyChain::DEFAULT_PREFIX("/723821fd-f534-44b3-80d9-44bf5f58bbbb");
 
 const RsaKeyParams KeyChain::DEFAULT_KEY_PARAMS;
 
+const std::string DEFAULT_PIB_SCHEME = "pib-sqlite3";
+
+#if defined(NDN_CXX_HAVE_OSX_SECURITY) and defined(NDN_CXX_WITH_OSX_KEYCHAIN)
+const std::string DEFAULT_TPM_SCHEME = "tpm-osxkeychain";
+#else
+const std::string DEFAULT_TPM_SCHEME = "tpm-file";
+#endif // defined(NDN_CXX_HAVE_OSX_SECURITY) and defined(NDN_CXX_WITH_OSX_KEYCHAIN)
+
+// When static library is used, not everything is compiled into the resulting binary.
+// Therefore, the following standard PIB and TPMs need to be registered here.
+// http://stackoverflow.com/q/9459980/2150331
+//
+// Also, cannot use Type::SCHEME, as its value may be uninitialized
+NDN_CXX_KEYCHAIN_REGISTER_PIB(SecPublicInfoSqlite3, "pib-sqlite3", "sqlite3");
+
+#ifdef NDN_CXX_HAVE_OSX_SECURITY
+NDN_CXX_KEYCHAIN_REGISTER_TPM(SecTpmOsx, "tpm-osxkeychain", "osx-keychain");
+#endif // NDN_CXX_HAVE_OSX_SECURITY
+
+NDN_CXX_KEYCHAIN_REGISTER_TPM(SecTpmFile, "tpm-file", "file");
+
+template<class T>
+struct Factory
+{
+  Factory(const std::string& canonicalName, const T& create)
+    : canonicalName(canonicalName)
+    , create(create)
+  {
+  }
+
+  std::string canonicalName;
+  T create;
+};
+typedef Factory<KeyChain::PibCreateFunc> PibFactory;
+typedef Factory<KeyChain::TpmCreateFunc> TpmFactory;
+
+static std::map<std::string, PibFactory>&
+getPibFactories()
+{
+  static std::map<std::string, PibFactory> pibFactories;
+  return pibFactories;
+}
+
+static std::map<std::string, TpmFactory>&
+getTpmFactories()
+{
+  static std::map<std::string, TpmFactory> tpmFactories;
+  return tpmFactories;
+}
+
+void
+KeyChain::registerPibImpl(const std::string& canonicalName,
+                          std::initializer_list<std::string> aliases,
+                          KeyChain::PibCreateFunc createFunc)
+{
+  for (const std::string& alias : aliases) {
+    getPibFactories().insert(make_pair(alias, PibFactory(canonicalName, createFunc)));
+  }
+}
+
+void
+KeyChain::registerTpmImpl(const std::string& canonicalName,
+                          std::initializer_list<std::string> aliases,
+                          KeyChain::TpmCreateFunc createFunc)
+{
+  for (const std::string& alias : aliases) {
+    getTpmFactories().insert(make_pair(alias, TpmFactory(canonicalName, createFunc)));
+  }
+}
+
 KeyChain::KeyChain()
-  : m_pib(0)
-  , m_tpm(0)
+  : m_pib(nullptr)
+  , m_tpm(nullptr)
   , m_lastTimestamp(time::toUnixTimestamp(time::system_clock::now()))
 {
-
   ConfigFile config;
   const ConfigFile::Parsed& parsed = config.getParsedConfiguration();
 
-  std::string pibName;
-  try
-    {
-      pibName = parsed.get<std::string>("pib");
-    }
-  catch (boost::property_tree::ptree_bad_path& error)
-    {
-      // pib is not specified, take the default
-    }
-  catch (boost::property_tree::ptree_bad_data& error)
-    {
-      throw ConfigFile::Error(error.what());
-    }
+  std::string pibLocator = parsed.get<std::string>("pib", "");
+  std::string tpmLocator = parsed.get<std::string>("tpm", "");
 
-  std::string tpmName;
-  try
-    {
-      tpmName = parsed.get<std::string>("tpm");
-    }
-  catch (boost::property_tree::ptree_bad_path& error)
-    {
-      // tpm is not specified, take the default
-    }
-  catch (boost::property_tree::ptree_bad_data& error)
-    {
-      throw ConfigFile::Error(error.what());
-    }
-
-
-  if (pibName.empty() || pibName == "sqlite3")
-    m_pib = new SecPublicInfoSqlite3;
-  else
-    throw Error("PIB type '" + pibName + "' is not supported");
-
-  if (tpmName.empty())
-#if defined(NDN_CXX_HAVE_OSX_SECURITY) and defined(NDN_CXX_WITH_OSX_KEYCHAIN)
-    m_tpm = new SecTpmOsx();
-#else
-    m_tpm = new SecTpmFile();
-#endif // defined(NDN_CXX_HAVE_OSX_SECURITY) and defined(NDN_CXX_WITH_OSX_KEYCHAIN)
-  else if (tpmName == "osx-keychain")
-#if defined(NDN_CXX_HAVE_OSX_SECURITY)
-    m_tpm = new SecTpmOsx();
-#else
-    throw Error("TPM type '" + tpmName + "' is not supported on this platform");
-#endif // NDN_CXX_HAVE_OSX_SECURITY
-  else if (tpmName == "file")
-    m_tpm = new SecTpmFile();
-  else
-    throw Error("TPM type '" + tpmName + "' is not supported");
+  initialize(pibLocator, tpmLocator, false);
 }
 
 KeyChain::KeyChain(const std::string& pibName,
-                   const std::string& tpmName)
-  : m_pib(0)
-  , m_tpm(0)
+                   const std::string& tpmName,
+                   bool allowReset)
+  : m_pib(nullptr)
+  , m_tpm(nullptr)
   , m_lastTimestamp(time::toUnixTimestamp(time::system_clock::now()))
 {
-  if (pibName == "sqlite3")
-    m_pib = new SecPublicInfoSqlite3;
-  else
-    throw Error("PIB type '" + pibName + "' is not supported");
-
-  if (tpmName == "file")
-    m_tpm = new SecTpmFile;
-#if defined(NDN_CXX_HAVE_OSX_SECURITY)
-  else if (tpmName == "osx-keychain")
-    m_tpm = new SecTpmOsx();
-#endif //NDN_CXX_HAVE_OSX_SECURITY
-  else
-    throw Error("TPM type '" + tpmName + "' is not supported");
+  initialize(pibName, tpmName, allowReset);
 }
 
 KeyChain::~KeyChain()
 {
-  if (m_pib != 0)
-    delete m_pib;
+}
 
-  if (m_tpm != 0)
-    delete m_tpm;
+static inline std::tuple<std::string/*type*/, std::string/*location*/>
+parseUri(const std::string& uri)
+{
+  size_t pos = uri.find(':');
+  if (pos != std::string::npos) {
+    return std::make_tuple(uri.substr(0, pos),
+                           uri.substr(pos + 1));
+  }
+  else {
+    return std::make_tuple(uri, "");
+  }
+}
+
+void
+KeyChain::initialize(const std::string& pibLocatorUri,
+                     const std::string& tpmLocatorUri,
+                     bool allowReset)
+{
+  BOOST_ASSERT(!getPibFactories().empty());
+  BOOST_ASSERT(!getTpmFactories().empty());
+
+  std::string pibScheme, pibLocation;
+  std::tie(pibScheme, pibLocation) = parseUri(pibLocatorUri);
+
+  std::string tpmScheme, tpmLocation;
+  std::tie(tpmScheme, tpmLocation) = parseUri(tpmLocatorUri);
+
+  // Find PIB and TPM factories
+  if (pibScheme.empty()) {
+    pibScheme = DEFAULT_PIB_SCHEME;
+  }
+  auto pibFactory = getPibFactories().find(pibScheme);
+  if (pibFactory == getPibFactories().end()) {
+    throw Error("PIB scheme '" + pibScheme + "' is not supported");
+  }
+  pibScheme = pibFactory->second.canonicalName;
+
+  if (tpmScheme.empty()) {
+    tpmScheme = DEFAULT_TPM_SCHEME;
+  }
+  auto tpmFactory = getTpmFactories().find(tpmScheme);
+  if (tpmFactory == getTpmFactories().end()) {
+    throw Error("TPM scheme '" + tpmScheme + "' is not supported");
+  }
+  tpmScheme = tpmFactory->second.canonicalName;
+
+  // Create PIB
+  m_pib = pibFactory->second.create(pibLocation);
+
+  std::string actualTpmLocator = tpmScheme + ":" + tpmLocation;
+
+  // Create TPM, checking that it matches to the previously associated one
+  try {
+    if (!allowReset &&
+        !m_pib->getTpmLocator().empty() && m_pib->getTpmLocator() != actualTpmLocator)
+      // Tpm mismatch, but we do not want to reset PIB
+      throw MismatchError("TPM locator supplied does not match TPM locator in PIB: " +
+                          m_pib->getTpmLocator() + " != " + actualTpmLocator);
+  }
+  catch (SecPublicInfo::Error&) {
+    // TPM locator is not set in PIB yet.
+  }
+
+  // note that key mismatch may still happen if the TPM locator is initially set to a
+  // wrong one or if the PIB was shared by more than one TPMs before.  This is due to the
+  // old PIB does not have TPM info, new pib should not have this problem.
+
+  m_tpm = tpmFactory->second.create(tpmLocation);
+  m_pib->setTpmLocator(actualTpmLocator);
 }
 
 Name
@@ -168,6 +247,20 @@ KeyChain::createIdentity(const Name& identityName, const KeyParams& params)
     }
 
   return certName;
+}
+
+Name
+KeyChain::generateRsaKeyPair(const Name& identityName, bool isKsk, uint32_t keySize)
+{
+  RsaKeyParams params(keySize);
+  return generateKeyPair(identityName, isKsk, params);
+}
+
+Name
+KeyChain::generateEcdsaKeyPair(const Name& identityName, bool isKsk, uint32_t keySize)
+{
+  EcdsaKeyParams params(keySize);
+  return generateKeyPair(identityName, isKsk, params);
 }
 
 Name
@@ -414,7 +507,7 @@ KeyChain::importIdentity(const SecuredBag& securedBag, const std::string& passwo
 
   shared_ptr<PublicKey> pubKey = m_tpm->getPublicKeyFromTpm(keyName.toUri());
   // HACK! We should set key type according to the pkcs8 info.
-  m_pib->addPublicKey(keyName, KEY_TYPE_RSA, *pubKey);
+  m_pib->addKey(keyName, *pubKey);
   m_pib->setDefaultKeyNameForIdentity(keyName);
 
   // Add cert
@@ -584,32 +677,12 @@ KeyChain::signWithSha256(Interest& interest)
 void
 KeyChain::deleteCertificate(const Name& certificateName)
 {
-  try
-    {
-      if (m_pib->getDefaultCertificateName() == certificateName)
-        return;
-    }
-  catch (SecPublicInfo::Error& e)
-    {
-      // Not a real error, just try to delete the certificate
-    }
-
   m_pib->deleteCertificateInfo(certificateName);
 }
 
 void
 KeyChain::deleteKey(const Name& keyName)
 {
-  try
-    {
-      if (m_pib->getDefaultKeyNameForIdentity(m_pib->getDefaultIdentity()) == keyName)
-        return;
-    }
-  catch (SecPublicInfo::Error& e)
-    {
-      // Not a real error, just try to delete the key
-    }
-
   m_pib->deletePublicKeyInfo(keyName);
   m_tpm->deleteKeyPairInTpm(keyName);
 }
@@ -617,25 +690,14 @@ KeyChain::deleteKey(const Name& keyName)
 void
 KeyChain::deleteIdentity(const Name& identity)
 {
-  try
-    {
-      if (m_pib->getDefaultIdentity() == identity)
-        return;
-    }
-  catch (SecPublicInfo::Error& e)
-    {
-      // Not a real error, just try to delete the identity
-    }
-
-  std::vector<Name> nameList;
-  m_pib->getAllKeyNamesOfIdentity(identity, nameList, true);
-  m_pib->getAllKeyNamesOfIdentity(identity, nameList, false);
+  std::vector<Name> keyNames;
+  m_pib->getAllKeyNamesOfIdentity(identity, keyNames, true);
+  m_pib->getAllKeyNamesOfIdentity(identity, keyNames, false);
 
   m_pib->deleteIdentityInfo(identity);
 
-  std::vector<Name>::const_iterator it = nameList.begin();
-  for(; it != nameList.end(); it++)
-    m_tpm->deleteKeyPairInTpm(*it);
+  for (const auto& keyName : keyNames)
+    m_tpm->deleteKeyPairInTpm(keyName);
 }
 
 }

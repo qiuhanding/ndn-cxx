@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -35,17 +35,10 @@
 #include "../interest.hpp"
 #include "../util/crypto.hpp"
 #include "../util/random.hpp"
+#include <initializer_list>
 
 
 namespace ndn {
-
-template<class TypePib, class TypeTpm>
-class KeyChainTraits
-{
-public:
-  typedef TypePib Pib;
-  typedef TypeTpm Tpm;
-};
 
 class KeyChain : noncopyable
 {
@@ -60,19 +53,64 @@ public:
     }
   };
 
-  static const Name DEFAULT_PREFIX;
+  /**
+   * This error is thrown when the TPM locator retrieved from PIB is
+   * different from what is supplied to the KeyChain constructor.
+   */
+  class MismatchError : public Error
+  {
+  public:
+    explicit
+    MismatchError(const std::string& what)
+      : Error(what)
+    {
+    }
+  };
 
-  // RsaKeyParams is set to be default for backward compatibility.
-  static const RsaKeyParams DEFAULT_KEY_PARAMS;
+  typedef function<unique_ptr<SecPublicInfo> (const std::string&)> PibCreateFunc;
+  typedef function<unique_ptr<SecTpm>(const std::string&)> TpmCreateFunc;
 
+  /**
+   * @brief Register a new PIB
+   * @param aliases List of schemes with which this PIB will be associated.
+   *        The first alias in the list is considered a canonical name of the PIB instance.
+   */
+  template<class PibType>
+  static void
+  registerPib(std::initializer_list<std::string> aliases);
+
+  /**
+   * @brief Register a new TPM
+   * @param aliases List of schemes with which this TPM will be associated
+   *        The first alias in the list is considered a canonical name of the TPM instance.
+   */
+  template<class TpmType>
+  static void
+  registerTpm(std::initializer_list<std::string> aliases);
+
+  /**
+   * @brief Constructor to create KeyChain with default PIB and TPM
+   *
+   * Default PIB and TPM are platform-dependent and can be overriden system-wide or on
+   * per-use basis.
+   *
+   * @todo Add detailed description about config file behavior here
+   */
   KeyChain();
 
-  template<class KeyChainTraits>
-  explicit
-  KeyChain(KeyChainTraits traits);
-
-  KeyChain(const std::string& pibName,
-           const std::string& tpmName);
+  /**
+   * @brief KeyChain constructor
+   *
+   * @sa  http://redmine.named-data.net/issues/2260
+   *
+   * @param pibLocator
+   * @param tpmLocator
+   * @param allowReset if true, the PIB will be reset when the supplied tpmLocator
+   *        mismatches the one in PIB
+   */
+  KeyChain(const std::string& pibLocator,
+           const std::string& tpmLocator,
+           bool allowReset = false);
 
   virtual
   ~KeyChain();
@@ -96,10 +134,10 @@ public:
    * @param keySize The size of the key.
    * @return The generated key name.
    */
-  inline Name
+  Name
   generateRsaKeyPair(const Name& identityName, bool isKsk = false, uint32_t keySize = 2048);
 
-  inline Name
+  Name
   generateEcdsaKeyPair(const Name& identityName, bool isKsk = false, uint32_t keySize = 256);
   /**
    * @brief Generate a pair of RSA keys for the specified identity and set it as default key for
@@ -258,10 +296,8 @@ public:
   /**
    * @brief delete a certificate.
    *
-   * If the certificate to be deleted is current default system default,
-   * the method will not delete the certificate and return immediately.
-   *
    * @param certificateName The certificate to be deleted.
+   * @throws KeyChain::Error if certificate cannot be deleted.
    */
   void
   deleteCertificate(const Name& certificateName);
@@ -269,10 +305,8 @@ public:
   /**
    * @brief delete a key.
    *
-   * If the key to be deleted is current default system default,
-   * the method will not delete the key and return immediately.
-   *
    * @param keyName The key to be deleted.
+   * @throws KeyChain::Error if key cannot be deleted.
    */
   void
   deleteKey(const Name& keyName);
@@ -280,10 +314,8 @@ public:
   /**
    * @brief delete an identity.
    *
-   * If the identity to be deleted is current default system default,
-   * the method will not delete the identity and return immediately.
-   *
    * @param identity The identity to be deleted.
+   * @throws KeyChain::Error if identity cannot be deleted.
    */
   void
   deleteIdentity(const Name& identity);
@@ -356,7 +388,7 @@ public:
   void
   addPublicKey(const Name& keyName, KeyType keyType, const PublicKey& publicKeyDer)
   {
-    return m_pib->addPublicKey(keyName, keyType, publicKeyDer);
+    return m_pib->addKey(keyName, publicKeyDer);
   }
 
   void
@@ -643,6 +675,11 @@ public:
   }
 
 private:
+  void
+  initialize(const std::string& pibLocatorUri,
+             const std::string& tpmLocatorUri,
+             bool needReset);
+
   /**
    * @brief Determine signature type
    *
@@ -707,35 +744,24 @@ private:
   signPacketWrapper(Interest& interest, const Signature& signature,
                     const Name& keyName, DigestAlgorithm digestAlgorithm);
 
+  static void
+  registerPibImpl(const std::string& canonicalName,
+                  std::initializer_list<std::string> aliases, PibCreateFunc createFunc);
+
+  static void
+  registerTpmImpl(const std::string& canonicalName,
+                  std::initializer_list<std::string> aliases, TpmCreateFunc createFunc);
+
+public:
+  static const Name DEFAULT_PREFIX;
+  // RsaKeyParams is set to be default for backward compatibility.
+  static const RsaKeyParams DEFAULT_KEY_PARAMS;
 
 private:
-  SecPublicInfo* m_pib;
-  SecTpm* m_tpm;
+  std::unique_ptr<SecPublicInfo> m_pib;
+  std::unique_ptr<SecTpm> m_tpm;
   time::milliseconds m_lastTimestamp;
 };
-
-template<class T>
-inline
-KeyChain::KeyChain(T)
-  : m_pib(new typename T::Pib)
-  , m_tpm(new typename T::Tpm)
-  , m_lastTimestamp(time::toUnixTimestamp(time::system_clock::now()))
-{
-}
-
-inline Name
-KeyChain::generateRsaKeyPair(const Name& identityName, bool isKsk, uint32_t keySize)
-{
-  RsaKeyParams params(keySize);
-  return generateKeyPair(identityName, isKsk, params);
-}
-
-inline Name
-KeyChain::generateEcdsaKeyPair(const Name& identityName, bool isKsk, uint32_t keySize)
-{
-  EcdsaKeyParams params(keySize);
-  return generateKeyPair(identityName, isKsk, params);
-}
 
 template<typename T>
 void
@@ -794,6 +820,56 @@ KeyChain::sign(T& packet, const IdentityCertificate& certificate)
 
   return;
 }
+
+template<class PibType>
+inline void
+KeyChain::registerPib(std::initializer_list<std::string> aliases)
+{
+  registerPibImpl(*aliases.begin(), aliases, [] (const std::string& locator) {
+      return unique_ptr<SecPublicInfo>(new PibType(locator));
+    });
+}
+
+template<class TpmType>
+inline void
+KeyChain::registerTpm(std::initializer_list<std::string> aliases)
+{
+  registerTpmImpl(*aliases.begin(), aliases, [] (const std::string& locator) {
+      return unique_ptr<SecTpm>(new TpmType(locator));
+    });
+}
+
+/**
+ * \brief Register SecPib class in ndn-cxx KeyChain
+ *
+ * This macro should be placed once in the implementation file of the
+ * SecPib type within the namespace where the type is declared.
+ */
+#define NDN_CXX_KEYCHAIN_REGISTER_PIB(PibType, ...)     \
+static class NdnCxxAuto ## PibType ## PibRegistrationClass    \
+{                                                             \
+public:                                                       \
+  NdnCxxAuto ## PibType ## PibRegistrationClass()             \
+  {                                                           \
+    ::ndn::KeyChain::registerPib<PibType>({__VA_ARGS__});     \
+  }                                                           \
+} ndnCxxAuto ## PibType ## PibRegistrationVariable
+
+/**
+ * \brief Register SecTpm class in ndn-cxx KeyChain
+ *
+ * This macro should be placed once in the implementation file of the
+ * SecTpm type within the namespace where the type is declared.
+ */
+#define NDN_CXX_KEYCHAIN_REGISTER_TPM(TpmType, ...)     \
+static class NdnCxxAuto ## TpmType ## TpmRegistrationClass    \
+{                                                             \
+public:                                                       \
+  NdnCxxAuto ## TpmType ## TpmRegistrationClass()             \
+  {                                                           \
+    ::ndn::KeyChain::registerTpm<TpmType>({__VA_ARGS__});     \
+  }                                                           \
+} ndnCxxAuto ## TpmType ## TpmRegistrationVariable
 
 } // namespace ndn
 

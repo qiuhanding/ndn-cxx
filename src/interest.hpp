@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -17,8 +17,6 @@
  * <http://www.gnu.org/licenses/>.
  *
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
- *
- * Based on code originally written by Jeff Thompson <jefft0@remap.ucla.edu>
  */
 
 #ifndef NDN_INTEREST_HPP
@@ -30,6 +28,7 @@
 #include "selectors.hpp"
 #include "util/time.hpp"
 #include "management/nfd-local-control-header.hpp"
+#include "tag-host.hpp"
 
 namespace ndn {
 
@@ -42,7 +41,7 @@ const time::milliseconds DEFAULT_INTEREST_LIFETIME = time::milliseconds(4000);
 
 /** @brief represents an Interest packet
  */
-class Interest : public enable_shared_from_this<Interest>
+class Interest : public TagHost, public enable_shared_from_this<Interest>
 {
 public:
   class Error : public tlv::Error
@@ -97,9 +96,9 @@ public:
   /**
    * @brief Fast encoding or block size estimation
    */
-  template<bool T>
+  template<encoding::Tag TAG>
   size_t
-  wireEncode(EncodingImpl<T>& block) const;
+  wireEncode(EncodingImpl<TAG>& block) const;
 
   /**
    * @brief Encode to a wire format

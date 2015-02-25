@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -74,9 +74,9 @@ public:
   explicit
   MetaInfo(const Block& block);
 
-  template<bool T>
+  template<encoding::Tag TAG>
   size_t
-  wireEncode(EncodingImpl<T>& block) const;
+  wireEncode(EncodingImpl<TAG>& block) const;
 
   const Block&
   wireEncode() const;
@@ -183,27 +183,6 @@ public: // EqualityComparable concept
 
   bool
   operator!=(const MetaInfo& other) const;
-
-public: // deprecated
-  /** @deprecated use tlv::ContentType_Blob
-   */
-  static const uint32_t DEPRECATED(TYPE_BLOB) = tlv::ContentType_Blob;
-
-  /** @deprecated use tlv::ContentType_Link
-   */
-  static const uint32_t DEPRECATED(TYPE_LINK) = tlv::ContentType_Link;
-
-  /** @deprecated use tlv::ContentType_Key
-   */
-  static const uint32_t DEPRECATED(TYPE_KEY) = tlv::ContentType_Key;
-
-  /** @deprecated use tlv::ContentType_Nack
-   */
-  static const uint32_t DEPRECATED(TYPE_NACK) = tlv::ContentType_Nack;
-
-  /** @deprecated use tlv::ContentType_Default
-   */
-  static const uint32_t DEPRECATED(TYPE_DEFAULT) = tlv::ContentType_Blob;
 
 private:
   uint32_t m_type;

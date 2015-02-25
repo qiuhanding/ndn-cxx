@@ -28,6 +28,7 @@
 #include "security/key-chain.hpp"
 #include "util/time.hpp"
 #include "util/random.hpp"
+#include "util/face-uri.hpp"
 
 namespace ndn {
 
@@ -38,9 +39,7 @@ Face::Face()
   , m_isDirectNfdFibManagementRequested(false)
   , m_impl(new Impl(*this))
 {
-  const std::string socketName = UnixTransport::getDefaultSocketName(m_impl->m_config);
-  construct(make_shared<UnixTransport>(socketName),
-            m_internalKeyChain);
+  construct(m_internalKeyChain);
 }
 
 Face::Face(boost::asio::io_service& ioService)
@@ -49,9 +48,7 @@ Face::Face(boost::asio::io_service& ioService)
   , m_isDirectNfdFibManagementRequested(false)
   , m_impl(new Impl(*this))
 {
-  const std::string socketName = UnixTransport::getDefaultSocketName(m_impl->m_config);
-  construct(make_shared<UnixTransport>(socketName),
-            m_internalKeyChain);
+  construct(m_internalKeyChain);
 }
 
 Face::Face(const std::string& host, const std::string& port/* = "6363"*/)
@@ -99,6 +96,50 @@ Face::Face(shared_ptr<Transport> transport,
 }
 
 void
+Face::construct(KeyChain* keyChain)
+{
+  // transport=unix:///var/run/nfd.sock
+  // transport=tcp://localhost:6363
+
+  const ConfigFile::Parsed& parsed = m_impl->m_config.getParsedConfiguration();
+
+  const auto transportType = parsed.get_optional<std::string>("transport");
+  if (!transportType)
+    {
+      // transport not specified, use default Unix transport.
+      construct(UnixTransport::create(m_impl->m_config), keyChain);
+      return;
+    }
+
+  unique_ptr<util::FaceUri> uri;
+  try
+    {
+      uri.reset(new util::FaceUri(*transportType));
+    }
+  catch (const util::FaceUri::Error& error)
+    {
+      throw ConfigFile::Error(error.what());
+    }
+
+  shared_ptr<Transport> transport;
+  const std::string protocol = uri->getScheme();
+
+  if (protocol == "unix")
+    {
+      construct(UnixTransport::create(m_impl->m_config), keyChain);
+
+    }
+  else if (protocol == "tcp" || protocol == "tcp4" || protocol == "tcp6")
+    {
+      construct(TcpTransport::create(m_impl->m_config), keyChain);
+    }
+  else
+    {
+      throw ConfigFile::Error("Unsupported transport protocol \"" + protocol + "\"");
+    }
+}
+
+void
 Face::construct(shared_ptr<Transport> transport,
                 KeyChain* keyChain)
 {
@@ -109,6 +150,7 @@ Face::construct(shared_ptr<Transport> transport,
 
   m_impl->m_pitTimeoutCheckTimer      = make_shared<monotonic_deadline_timer>(ref(m_ioService));
   m_impl->m_processEventsTimeoutTimer = make_shared<monotonic_deadline_timer>(ref(m_ioService));
+  m_impl->ensureConnected(false);
 
   std::string protocol = "nrd-0.1";
 
@@ -171,8 +213,8 @@ Face::expressInterest(const Name& name,
                       const OnData& onData, const OnTimeout& onTimeout/* = OnTimeout()*/)
 {
   return expressInterest(Interest(tmpl)
-                           .setName(name)
-                           .setNonce(0),
+                         .setName(name)
+                         .setNonce(0),
                          onData, onTimeout);
 }
 
@@ -441,8 +483,7 @@ Face::onReceiveElement(const Block& blockFromDaemon)
 
   if (block.type() == tlv::Interest)
     {
-      shared_ptr<Interest> interest = make_shared<Interest>();
-      interest->wireDecode(block);
+      shared_ptr<Interest> interest = make_shared<Interest>(block);
       if (&block != &blockFromDaemon)
         interest->getLocalControlHeader().wireDecode(blockFromDaemon);
 
@@ -450,8 +491,7 @@ Face::onReceiveElement(const Block& blockFromDaemon)
     }
   else if (block.type() == tlv::Data)
     {
-      shared_ptr<Data> data = make_shared<Data>();
-      data->wireDecode(block);
+      shared_ptr<Data> data = make_shared<Data>(block);
       if (&block != &blockFromDaemon)
         data->getLocalControlHeader().wireDecode(blockFromDaemon);
 

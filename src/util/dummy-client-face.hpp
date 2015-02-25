@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -23,7 +23,7 @@
 #define NDN_UTIL_DUMMY_CLIENT_FACE_HPP
 
 #include "../face.hpp"
-#include "event-emitter.hpp"
+#include "signal.hpp"
 
 namespace ndn {
 namespace util {
@@ -104,17 +104,17 @@ public:
    */
   std::vector<Data> sentDatas;
 
-  /** \brief Event to be called whenever an Interest is received
+  /** \brief emits whenever an Interest is sent
    *
-   *  After .expressInterest, .processEvents must be called before this event would be triggered.
+   *  After .expressInterest, .processEvents must be called before this signal would be emitted.
    */
-  util::EventEmitter<Interest> onInterest;
+  Signal<DummyClientFace, Interest> onSendInterest;
 
-  /** \brief Event to be called whenever a Data packet is received
+  /** \brief emits whenever a Data packet is sent
    *
-   *  After .put, .processEvents must be called before this event would be triggered.
+   *  After .put, .processEvents must be called before this signal would be emitted.
    */
-  util::EventEmitter<Data> onData;
+  Signal<DummyClientFace, Data> onSendData;
 
 private:
   shared_ptr<Transport> m_transport;

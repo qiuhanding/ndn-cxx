@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -26,10 +26,26 @@
 #include "../encoding/oid.hpp"
 #include "../encoding/buffer-stream.hpp"
 #include "cryptopp.hpp"
+#include <unistd.h>
 
 namespace ndn {
 
 using std::string;
+
+SecTpm::SecTpm(const string& location)
+  : m_location(location)
+{
+}
+
+SecTpm::~SecTpm()
+{
+}
+
+std::string
+SecTpm::getTpmLocator()
+{
+  return this->getScheme() + ":" + m_location;
+}
 
 ConstBufferPtr
 SecTpm::exportPrivateKeyPkcs5FromTpm(const Name& keyName, const string& passwordStr)
@@ -347,6 +363,7 @@ SecTpm::getImpExpPassWord(std::string& password, const std::string& prompt)
 {
   bool isInitialized = false;
 
+#ifdef NDN_CXX_HAVE_GETPASS
   char* pw0 = 0;
 
   pw0 = getpass(prompt.c_str());
@@ -373,6 +390,8 @@ SecTpm::getImpExpPassWord(std::string& password, const std::string& prompt)
 
   if (password.empty())
     return false;
+
+#endif // NDN_CXX_HAVE_GETPASS
 
   return isInitialized;
 }

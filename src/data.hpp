@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -30,12 +30,13 @@
 #include "meta-info.hpp"
 #include "key-locator.hpp"
 #include "management/nfd-local-control-header.hpp"
+#include "tag-host.hpp"
 
 namespace ndn {
 
 /** @brief represents a Data packet
  */
-class Data : public enable_shared_from_this<Data>
+class Data : public TagHost, public enable_shared_from_this<Data>
 {
 public:
   class Error : public tlv::Error
@@ -96,9 +97,9 @@ public:
    *                                blocks will be encoded into the block. Note that there
    *                                will be no outer TLV header of the Data packet.
    */
-  template<bool T>
+  template<encoding::Tag TAG>
   size_t
-  wireEncode(EncodingImpl<T>& block, bool wantUnsignedPortionOnly = false) const;
+  wireEncode(EncodingImpl<TAG>& block, bool wantUnsignedPortionOnly = false) const;
 
   /**
    * @brief Encode to a wire format
@@ -296,6 +297,12 @@ public:
   Data&
   setIncomingFaceId(uint64_t incomingFaceId);
 
+  nfd::LocalControlHeader::CachingPolicy
+  getCachingPolicy() const;
+
+  Data&
+  setCachingPolicy(nfd::LocalControlHeader::CachingPolicy cachingPolicy);
+
 public: // EqualityComparable concept
   bool
   operator==(const Data& other) const;
@@ -386,6 +393,11 @@ Data::getIncomingFaceId() const
   return getLocalControlHeader().getIncomingFaceId();
 }
 
+inline nfd::LocalControlHeader::CachingPolicy
+Data::getCachingPolicy() const
+{
+  return getLocalControlHeader().getCachingPolicy();
+}
 
 } // namespace ndn
 

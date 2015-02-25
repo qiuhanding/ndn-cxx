@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -114,9 +114,9 @@ public:
   /**
    * @brief Fast encoding or block size estimation
    */
-  template<bool T>
+  template<encoding::Tag TAG>
   size_t
-  wireEncode(EncodingImpl<T>& block) const;
+  wireEncode(EncodingImpl<TAG>& block) const;
 
   const Block&
   wireEncode() const;
@@ -159,14 +159,19 @@ public:
   }
 
   /**
-   * Append a new component, copying from value of length valueLength.
+   * @brief Append a new component, copying from value frome the range [@p first, @p last) of bytes
+   * @param first     Iterator pointing to the beginning of the buffer
+   * @param last      Iterator pointing to the ending of the buffer
+   * @tparam Iterator iterator type satisfying at least InputIterator concept.  Implementation
+   *                  is more optimal when the iterator type satisfies RandomAccessIterator concept.
+   *                  It is required that sizeof(std::iterator_traits<Iterator>::value_type) == 1.
    * @return This name so that you can chain calls to append.
    */
-  template<class InputIterator>
+  template<class Iterator>
   Name&
-  append(InputIterator begin, InputIterator end)
+  append(Iterator first, Iterator last)
   {
-    m_nameBlock.push_back(Component(begin, end));
+    m_nameBlock.push_back(Component(first, last));
     return *this;
   }
 
@@ -223,20 +228,11 @@ public:
    * Get a new name, constructed as a subset of components.
    * @param iStartComponent The index if the first component to get.
    * @param nComponents The number of components starting at iStartComponent.
+   *                    Use npos to get the sub Name until the end of this Name.
    * @return A new name.
    */
   Name
-  getSubName(size_t iStartComponent, size_t nComponents) const;
-
-  /**
-   * @brief Get a new name, constructed as a subset of components starting at
-   *        iStartComponent until the end of the name.
-   *
-   * @param iStartComponent The index if the first component to get.
-   * @return A new name.
-   */
-  Name
-  getSubName(size_t iStartComponent) const;
+  getSubName(size_t iStartComponent, size_t nComponents = npos) const;
 
   /**
    * @brief Return a new Name with the first nComponents components of this Name.
@@ -460,14 +456,28 @@ public:
    * std::sort gives: /a/b/d /a/b/cc /c /c/a /bb .  This is intuitive because all names with
    * the prefix /a are next to each other.  But it may be also be counter-intuitive because
    * /c comes before /bb according to NDN canonical ordering since it is shorter.  @param
-   * other The other Name to compare with.  @return 0 If they compare equal, -1 if *this
-   * comes before other in the canonical ordering, or 1 if *this comes after other in the
-   * canonical ordering.
+   * other The other Name to compare with.
+   *
+   * @retval 0 if they compare equal
+   * @retval -1 if *this comes before other in the canonical ordering
+   * @retval 1 if *this comes after other in the canonical ordering
    *
    * @see http://named-data.net/doc/ndn-tlv/name.html#canonical-order
    */
   int
-  compare(const Name& other) const;
+  compare(const Name& other) const
+  {
+    return this->compare(0, npos, other);
+  }
+
+  /** \brief compares [pos1, pos1+count1) components in this Name
+   *         to [pos2, pos2+count2) components in \p other
+   *
+   *  This is equivalent to this->getSubName(pos1, count1).compare(other.getSubName(pos2, count2));
+   */
+  int
+  compare(size_t pos1, size_t count1,
+          const Name& other, size_t pos2 = 0, size_t count2 = npos) const;
 
   /**
    * Append the component
@@ -590,6 +600,11 @@ public:
   {
     return const_reverse_iterator(begin());
   }
+
+public:
+  /** \brief indicates "until the end" in getSubName and compare
+   */
+  static const size_t npos;
 
 private:
   mutable Block m_nameBlock;

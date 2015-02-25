@@ -1,12 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2014,  Regents of the University of California,
- *                      Arizona Board of Regents,
- *                      Colorado State University,
- *                      University Pierre & Marie Curie, Sorbonne University,
- *                      Washington University in St. Louis,
- *                      Beijing Institute of Technology,
- *                      The University of Memphis
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -29,7 +23,7 @@
 
 #include <boost/functional/hash.hpp>
 
-#include <cstdio>
+#include <stdio.h>
 #include <ostream>
 
 namespace ndn {
@@ -79,9 +73,11 @@ Address::toString(char sep) const
 {
   char s[18]; // 12 digits + 5 separators + null terminator
 
-  // apparently gcc-4.6 does not support the 'hh' type modifier
-  std::snprintf(s, sizeof(s), "%02x%c%02x%c%02x%c%02x%c%02x%c%02x",
-                at(0), sep, at(1), sep, at(2), sep, at(3), sep, at(4), sep, at(5));
+  // - apparently gcc-4.6 does not support the 'hh' type modifier
+  // - std::snprintf not found in some environments
+  //   http://redmine.named-data.net/issues/2299 for more information
+  snprintf(s, sizeof(s), "%02x%c%02x%c%02x%c%02x%c%02x%c%02x",
+           at(0), sep, at(1), sep, at(2), sep, at(3), sep, at(4), sep, at(5));
 
   return std::string(s);
 }

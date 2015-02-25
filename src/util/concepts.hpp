@@ -23,9 +23,12 @@
 #define NDN_UTIL_CONCEPTS_HPP
 
 #include <boost/concept/usage.hpp>
+#include "../encoding/block.hpp"
 
 namespace ndn {
 
+/** \brief a concept check for TLV abstraction with .wireEncode method
+ */
 template<class X>
 class WireEncodable
 {
@@ -33,10 +36,14 @@ public:
   BOOST_CONCEPT_USAGE(WireEncodable)
   {
     X j;
-    j.wireEncode();
+    Block block = j.wireEncode();
+    block.size(); // avoid 'unused variable block'
   }
 };
 
+/** \brief a concept check for TLV abstraction with .wireDecode method
+ *         and constructible from Block
+ */
 template<class X>
 class WireDecodable
 {
@@ -49,6 +56,8 @@ public:
   }
 };
 
+/** \brief a concept check for CryptoPP hash algorithm
+ */
 template<class X>
 class Hashable
 {

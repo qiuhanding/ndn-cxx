@@ -10,17 +10,20 @@ ndn-cxx uses continuous integration and has been tested on the following
 platforms:
 
 -  Ubuntu 12.04 (64-bit and 32-bit)
--  Ubuntu 13.10 (64-bit and 32-bit)
+-  Ubuntu 14.04 (64-bit and 32-bit)
+-  Ubuntu 14.10 (64-bit and 32-bit)
 -  OS X 10.8
 -  OS X 10.9
+-  OS X 10.10
 
 ndn-cxx is known to work on the following platforms, although they are not officially
 supported:
 
--  Ubuntu 14.04
 -  Fedora >= 20
+-  CentOS >= 6.2
+-  Gentoo Linux
 -  FreeBSD >= 10.0
--  Raspberry Pi
+-  Raspbian >= 3.12
 
 Prerequisites
 -------------
@@ -29,7 +32,6 @@ Required:
 ~~~~~~~~~
 
 -  ``python`` >= 2.6
--  ``libcrypto``
 -  ``libsqlite3``
 -  ``libcrypto++``
 -  ``pkg-config``
@@ -49,25 +51,30 @@ development tools and libraries, and ndn-cxx prerequisites.
 
        sudo port install pkgconfig boost sqlite3 libcryptopp
 
--  Ubuntu 12.04, Ubuntu 13.10
+   .. note::
+
+      If a major OS X system upgrade is performed after installing dependencies with MacPorts,
+      remember to `reinstall all ports <https://trac.macports.org/wiki/Migration>`__.
+
+-  Ubuntu
 
    In a terminal, enter::
 
        sudo apt-get install build-essential
-       sudo apt-get install libssl-dev libsqlite3-dev libcrypto++-dev
+       sudo apt-get install libsqlite3-dev libcrypto++-dev
 
        # For Ubuntu 12.04
        sudo apt-get install libboost1.48-all-dev
 
-       # For Ubuntu 13.10
+       # For all other Ubuntu versions
        sudo apt-get install libboost-all-dev
 
-- Fedora >=20
+- Fedora
 
    In a terminal, enter::
 
        sudo yum install gcc-g++ git
-       sudo yum install openssl-devel sqlite-devel cryptopp-devel boost-devel
+       sudo yum install sqlite-devel cryptopp-devel boost-devel
 
 Optional:
 ~~~~~~~~~
@@ -82,7 +89,7 @@ dependencies need to be installed:
 
 The following lists steps for common platforms to install these prerequisites:
 
--  On OS X 10.8 and 10.9 with MacPorts::
+-  On OS X with MacPorts::
 
        sudo port install doxygen graphviz py27-sphinx sphinx_select
        sudo port select sphinx py27-sphinx
@@ -92,14 +99,14 @@ The following lists steps for common platforms to install these prerequisites:
        sudo port select pip pip27
        sudo pip install sphinxcontrib-doxylink sphinxcontrib-googleanalytics
 
--  On Ubuntu >= 12.04::
+-  On Ubuntu::
 
        sudo apt-get install doxygen graphviz python-sphinx python-pip
        sudo pip install sphinxcontrib-doxylink sphinxcontrib-googleanalytics
 
--  On Fedora >= 20::
+-  On Fedora::
 
-       sudp yum install doxygen graphviz python-sphinx
+       sudo yum install doxygen graphviz python-sphinx
        sudo pip install sphinxcontrib-doxylink sphinxcontrib-googleanalytics
 
 Build
@@ -241,3 +248,14 @@ running ``./waf configure``:
 
     CXXFLAGS="-O1 -g3" ./waf configure --debug --with-tests
     ...
+
+Customize Compiler
+------------------
+
+To customize compiler, set ``CXX`` environment variable to point to compiler binary and, in
+some case, specify type of the compiler using ``--check-cxx-compiler``.  For example, when
+using clang compiler on Linux system, use the following:
+
+::
+
+    CXX=clang++ ./waf configure --check-cxx-compiler=clang++

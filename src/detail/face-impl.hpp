@@ -31,12 +31,12 @@
 #include "../util/scheduler.hpp"
 #include "../util/config-file.hpp"
 
-#include "transport/transport.hpp"
-#include "transport/unix-transport.hpp"
-#include "transport/tcp-transport.hpp"
+#include "../transport/transport.hpp"
+#include "../transport/unix-transport.hpp"
+#include "../transport/tcp-transport.hpp"
 
-#include "management/nfd-controller.hpp"
-#include "management/nfd-command-options.hpp"
+#include "../management/nfd-controller.hpp"
+#include "../management/nfd-command-options.hpp"
 
 namespace ndn {
 
@@ -101,23 +101,29 @@ public:
   /////////////////////////////////////////////////////////////////////////////////////////////////
 
   void
-  asyncExpressInterest(const shared_ptr<const Interest>& interest,
-                       const OnData& onData, const OnTimeout& onTimeout)
+  ensureConnected(bool wantResume = true)
   {
     if (!m_face.m_transport->isConnected())
       m_face.m_transport->connect(m_face.m_ioService,
                                   bind(&Face::onReceiveElement, &m_face, _1));
 
-    if (!m_face.m_transport->isExpectingData())
+    if (wantResume && !m_face.m_transport->isExpectingData())
       m_face.m_transport->resume();
+  }
+
+  void
+  asyncExpressInterest(const shared_ptr<const Interest>& interest,
+                       const OnData& onData, const OnTimeout& onTimeout)
+  {
+    this->ensureConnected();
 
     m_pendingInterestTable.push_back(make_shared<PendingInterest>(interest, onData, onTimeout));
 
-    if (!interest->getLocalControlHeader().empty(false, true))
+    if (!interest->getLocalControlHeader().empty(nfd::LocalControlHeader::ENCODE_NEXT_HOP))
       {
         // encode only NextHopFaceId towards the forwarder
         m_face.m_transport->send(interest->getLocalControlHeader()
-                                   .wireEncode(*interest, false, true),
+                                   .wireEncode(*interest, nfd::LocalControlHeader::ENCODE_NEXT_HOP),
                                  interest->wireEncode());
       }
     else
@@ -141,17 +147,14 @@ public:
   void
   asyncPutData(const shared_ptr<const Data>& data)
   {
-    if (!m_face.m_transport->isConnected())
-      m_face.m_transport->connect(m_face.m_ioService,
-                                  bind(&Face::onReceiveElement, &m_face, _1));
+    this->ensureConnected();
 
-    if (!m_face.m_transport->isExpectingData())
-      m_face.m_transport->resume();
-
-    if (!data->getLocalControlHeader().empty(false, true))
+    if (!data->getLocalControlHeader().empty(nfd::LocalControlHeader::ENCODE_CACHING_POLICY))
       {
-        m_face.m_transport->send(data->getLocalControlHeader().wireEncode(*data, false, true),
-                                 data->wireEncode());
+        m_face.m_transport->send(
+          data->getLocalControlHeader().wireEncode(*data,
+                                                   nfd::LocalControlHeader::ENCODE_CACHING_POLICY),
+          data->wireEncode());
       }
     else
       {

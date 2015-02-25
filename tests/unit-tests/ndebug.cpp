@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -30,7 +30,7 @@ BOOST_AUTO_TEST_SUITE(TestNdebug)
 
 BOOST_AUTO_TEST_CASE(AssertFalse)
 {
-#ifndef NDN_CXX__DEBUG
+#ifndef _DEBUG
   // in release builds, assertion shouldn't execute
   BOOST_ASSERT(false);
 #endif
@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(SideEffect)
 {
   int a = 1;
   BOOST_ASSERT((a = 2) > 0);
-#ifdef NDN_CXX__DEBUG
+#ifdef _DEBUG
   BOOST_CHECK_EQUAL(a, 2);
 #else
   BOOST_CHECK_EQUAL(a, 1);

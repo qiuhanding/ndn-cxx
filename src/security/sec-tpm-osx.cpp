@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -21,10 +21,9 @@
  * @author Yingdi Yu <http://irl.cs.ucla.edu/~yingdi/>
  */
 
-#include "common.hpp"
-
 #include "sec-tpm-osx.hpp"
 #include "public-key.hpp"
+
 #include "../encoding/oid.hpp"
 #include "../encoding/buffer-stream.hpp"
 #include "cryptopp.hpp"
@@ -46,6 +45,8 @@
 namespace ndn {
 
 using std::string;
+
+const std::string SecTpmOsx::SCHEME("tpm-osxkeychain");
 
 /**
  * @brief Helper class to wrap CoreFoundation object pointers
@@ -236,9 +237,11 @@ public:
   bool m_inTerminal;
 };
 
-SecTpmOsx::SecTpmOsx()
-  : m_impl(new Impl)
+SecTpmOsx::SecTpmOsx(const std::string& location)
+  : SecTpm(location)
+  , m_impl(new Impl)
 {
+  // TODO: add location support
   if (m_impl->m_inTerminal)
     SecKeychainSetUserInteractionAllowed(false);
   else
@@ -250,8 +253,8 @@ SecTpmOsx::SecTpmOsx()
     throw Error("No default keychain, create one first!");
 }
 
-SecTpmOsx::~SecTpmOsx(){
-  //TODO: implement
+SecTpmOsx::~SecTpmOsx()
+{
 }
 
 void
@@ -325,6 +328,7 @@ SecTpmOsx::unlockTpm(const char* password, size_t passwordLength, bool usePasswo
                         m_impl->m_password.c_str(),
                         true);
     }
+#ifdef NDN_CXX_HAVE_GETPASS
   else if (m_impl->m_inTerminal)
     {
       // If no configured password, get password from terminal if inTerminal set.
@@ -355,6 +359,7 @@ SecTpmOsx::unlockTpm(const char* password, size_t passwordLength, bool usePasswo
             break;
         }
     }
+#endif // NDN_CXX_HAVE_GETPASS
   else
     {
       // If inTerminal is not set, get the password from GUI.
@@ -523,6 +528,12 @@ SecTpmOsx::getPublicKeyFromTpm(const Name& keyName)
   shared_ptr<PublicKey> key = make_shared<PublicKey>(CFDataGetBytePtr(exportedKey.get()),
                                                      CFDataGetLength(exportedKey.get()));
   return key;
+}
+
+std::string
+SecTpmOsx::getScheme()
+{
+  return SCHEME;
 }
 
 ConstBufferPtr

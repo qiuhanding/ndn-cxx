@@ -22,7 +22,7 @@
 #ifndef NDN_PIB_PIB_ENCODING_HPP
 #define NDN_PIB_PIB_ENCODING_HPP
 
-#include "security/identity-certificate.hpp"
+#include "../identity-certificate.hpp"
 
 namespace ndn {
 namespace pib {

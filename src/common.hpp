@@ -19,6 +19,12 @@
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
  */
 
+/** \file
+ *  \brief import common constructs for ndn-cxx library internal use
+ *  \warning This file is implementation detail of ndn-cxx library.
+ *           Aliases imported in this file SHOULD NOT be used outside of ndn-cxx.
+ */
+
 #ifndef NDN_COMMON_HPP
 #define NDN_COMMON_HPP
 
@@ -64,16 +70,6 @@
 #endif
 
 namespace ndn {
-
-/** \brief the namespace contains smart pointers
- *  \deprecated use std:: directly
- */
-namespace ptr_lib = std;
-
-/** \brief the namespace contains function and bind
- *  \deprecated use std:: directly
- */
-namespace func_lib = std;
 
 using std::shared_ptr;
 using std::unique_ptr;
