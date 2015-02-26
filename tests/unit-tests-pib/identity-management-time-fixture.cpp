@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -19,25 +19,29 @@
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
  */
 
-#include "identity-management-fixture.hpp"
+#include "identity-management-time-fixture.hpp"
 
 namespace ndn {
-namespace pib {
+namespace security {
 
-IdentityManagementFixture::IdentityManagementFixture()
-  : m_keyChain("sqlite3", "file")
+IdentityManagementTimeFixture::IdentityManagementTimeFixture()
+  : m_keyChainTmpPath(boost::filesystem::path(TEST_CONFIG_PATH) / "PibIdMgmtTimeTest")
+  , m_keyChain(std::string("pib-sqlite3:").append(m_keyChainTmpPath.string()),
+               std::string("tpm-file:").append(m_keyChainTmpPath.string()))
 {
 }
 
-IdentityManagementFixture::~IdentityManagementFixture()
+IdentityManagementTimeFixture::~IdentityManagementTimeFixture()
 {
   for (const auto& identity : m_identities) {
     m_keyChain.deleteIdentity(identity);
   }
+
+  boost::filesystem::remove_all(m_keyChainTmpPath);
 }
 
 bool
-IdentityManagementFixture::addIdentity(const Name& identity, const KeyParams& params)
+IdentityManagementTimeFixture::addIdentity(const Name& identity, const KeyParams& params)
 {
   try {
     m_keyChain.createIdentity(identity, params);
@@ -49,17 +53,6 @@ IdentityManagementFixture::addIdentity(const Name& identity, const KeyParams& pa
   }
 }
 
-shared_ptr<IdentityCertificate>
-IdentityManagementFixture::getCertificateForIdentity(const Name& identity)
-{
-  try {
-    Name certName = m_keyChain.createIdentity(identity);
-    return m_keyChain.getCertificate(certName);
-  }
-  catch (std::runtime_error&) {
-    return shared_ptr<IdentityCertificate>();
-  }
-}
 
-} // namespace pib
+} // namespace security
 } // namespace ndn

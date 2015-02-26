@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -19,38 +19,44 @@
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
  */
 
+#ifndef NDN_TESTS_IDENTITY_MANAGEMENT_TIME_FIXTURE_HPP
+#define NDN_TESTS_IDENTITY_MANAGEMENT_TIME_FIXTURE_HPP
+
 #include "security/key-chain.hpp"
+#include "unit-test-time-fixture.hpp"
 #include <vector>
+#include <boost/filesystem.hpp>
 
 #include "boost-test.hpp"
 
 namespace ndn {
-namespace pib {
+namespace security {
 
 /**
- * @brief IdentityManagementFixture is a test suite level fixture.
+ * @brief IdentityManagementTimeFixture is a test suite level fixture.
  * Test cases in the suite can use this fixture to create identities.
  * Identities added via addIdentity method are automatically deleted
  * during test teardown.
  */
-class IdentityManagementFixture
+class IdentityManagementTimeFixture : public tests::UnitTestTimeFixture
 {
 public:
-  IdentityManagementFixture();
+  IdentityManagementTimeFixture();
 
-  ~IdentityManagementFixture();
+  ~IdentityManagementTimeFixture();
 
   /// @brief add identity, return true if succeed.
   bool
   addIdentity(const Name& identity, const KeyParams& params = KeyChain::DEFAULT_KEY_PARAMS);
 
-  shared_ptr<IdentityCertificate>
-  getCertificateForIdentity(const Name& identity);
-
 protected:
+  boost::filesystem::path m_keyChainTmpPath;
+
   KeyChain m_keyChain;
   std::vector<Name> m_identities;
 };
 
-} // namespace pib
+} // namespace security
 } // namespace ndn
+
+#endif // NDN_TESTS_IDENTITY_MANAGEMENT_TIME_FIXTURE_HPP

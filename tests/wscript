@@ -42,6 +42,7 @@ def build(bld):
         use='ndn-cxx tests-base pib-objects BOOST',
         includes='. ..',
         install_path=None,
+        defines='TEST_CONFIG_PATH=\"%s/pib-tests\"' %(bld.bldnode)
         )
 
     if bld.env['HAVE_OSX_SECURITY']:

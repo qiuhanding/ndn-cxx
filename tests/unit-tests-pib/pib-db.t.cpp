@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -20,7 +20,7 @@
  */
 
 #include "pib/pib-db.hpp"
-#include "security/key-chain.hpp"
+#include "identity-management-time-fixture.hpp"
 
 #include <boost/filesystem.hpp>
 
@@ -30,239 +30,413 @@ namespace ndn {
 namespace pib {
 namespace tests {
 
-class PibDbTestFixture
+class PibDbTestFixture : public ndn::security::IdentityManagementTimeFixture
 {
 public:
   PibDbTestFixture()
-    : db("/tmp")
+    : tmpPath(boost::filesystem::path(TEST_CONFIG_PATH) / "DbTest")
+    , db(tmpPath.c_str())
   {
   }
 
   ~PibDbTestFixture()
   {
-    boost::filesystem::path TMP_DIR("/tmp/pib.db");
-    boost::filesystem::remove_all(TMP_DIR);
+    boost::filesystem::remove_all(tmpPath);
   }
 
+  boost::filesystem::path tmpPath;
   PibDb db;
+  std::vector<Name> deletedIds;
+  std::vector<Name> deletedKeys;
+  std::vector<Name> deletedCerts;
 };
 
 
 BOOST_FIXTURE_TEST_SUITE(TestPibDb, PibDbTestFixture)
 
-BOOST_AUTO_TEST_CASE(UserTest)
+BOOST_AUTO_TEST_CASE(MgmtTest)
 {
-  KeyChain keyChain("sqlite3", "file");
-
-  Name root("/localhost/pib/user");
-  Name rootCertName = keyChain.createIdentity(root);
-  shared_ptr<IdentityCertificate> rootCert = keyChain.getCertificate(rootCertName);
-
   Name testUser("/localhost/pib/user/test");
-  Name testUserCertName = keyChain.createIdentity(testUser);
-  shared_ptr<IdentityCertificate> testUserCert = keyChain.getCertificate(testUserCertName);
+  addIdentity(testUser);
+  Name testUserCertName = m_keyChain.getDefaultCertificateNameForIdentity(testUser);
+  shared_ptr<IdentityCertificate> testUserCert = m_keyChain.getCertificate(testUserCertName);
 
-  db.addRootUser(*rootCert);
-  BOOST_CHECK(db.hasUser("root"));
-  BOOST_CHECK(static_cast<bool>(db.getUserMgmtCertificate("root")));
 
-  BOOST_CHECK_THROW(db.addRootUser(*testUserCert), PibDb::Error);
-  BOOST_CHECK_EQUAL(db.hasUser("test"), false);
-  BOOST_CHECK_EQUAL(static_cast<bool>(db.getUserMgmtCertificate("test")), false);
+  BOOST_CHECK_EQUAL(db.getOwnerName(), "");
+  BOOST_CHECK(db.getMgmtCertificate() == nullptr);
 
-  db.addUser(*testUserCert);
-  BOOST_CHECK(db.hasUser("test"));
-  BOOST_CHECK(static_cast<bool>(db.getUserMgmtCertificate("test")));
+  db.updateMgmtCertificate(*testUserCert);
+  BOOST_CHECK_EQUAL(db.getOwnerName(), "test");
+  BOOST_REQUIRE(db.getMgmtCertificate() != nullptr);
+  BOOST_CHECK_EQUAL(db.getMgmtCertificate()->getName(), testUserCertName);
 
-  db.deleteUser("test");
-  BOOST_CHECK_EQUAL(db.hasUser("test"), false);
-  BOOST_CHECK_EQUAL(static_cast<bool>(db.getUserMgmtCertificate("test")), false);
+  db.setTpmLocator("tpmLocator");
+  BOOST_CHECK_EQUAL(db.getTpmLocator(), "tpmLocator");
 
-  db.deleteUser("root");
-  BOOST_CHECK_EQUAL(db.hasUser("root"), false);
-  BOOST_CHECK_EQUAL(static_cast<bool>(db.getUserMgmtCertificate("root")), false);
+  Name testUser2("/localhost/pib/user/test2");
+  addIdentity(testUser2);
+  Name testUser2CertName = m_keyChain.getDefaultCertificateNameForIdentity(testUser2);
+  shared_ptr<IdentityCertificate> testUser2Cert = m_keyChain.getCertificate(testUser2CertName);
 
-  keyChain.deleteIdentity(testUser);
-  keyChain.deleteIdentity(root);
+  BOOST_CHECK_THROW(db.updateMgmtCertificate(*testUser2Cert), PibDb::Error);
+
+  Name testUserKeyName2 = m_keyChain.generateRsaKeyPairAsDefault(testUser);
+  shared_ptr<IdentityCertificate> testUserCert2 = m_keyChain.selfSign(testUserKeyName2);
+
+  BOOST_CHECK_NO_THROW(db.updateMgmtCertificate(*testUserCert2));
+  BOOST_REQUIRE(db.getMgmtCertificate() != nullptr);
+  BOOST_CHECK_EQUAL(db.getMgmtCertificate()->getName(),
+                    testUserCert2->getName());
 }
 
 BOOST_AUTO_TEST_CASE(IdentityTest)
 {
-  KeyChain keyChain("sqlite3", "file");
-
-  std::string userName("test");
-  Name testUser("/localhost/pib/user/test");
-  Name testUserCertName = keyChain.createIdentity(testUser);
-  shared_ptr<IdentityCertificate> testUserCert = keyChain.getCertificate(testUserCertName);
-  db.addUser(*testUserCert);
+  db.identityDeleted.connect([this] (const Name& id) {
+      this->deletedIds.push_back(id);
+    });
 
   Name identity("/test/identity");
-  db.addIdentity(userName, identity);
-  BOOST_CHECK(db.hasIdentity(userName, identity));
+  Name identity2("/test/identity2");
 
-  db.deleteIdentity(userName, identity);
-  BOOST_CHECK_EQUAL(db.hasIdentity(userName, identity), false);
+  // Add an identity: /test/identity
+  // Since there is no default identity,
+  // the new added identity will be set as the default identity.
+  BOOST_CHECK_EQUAL(db.getDefaultIdentity(), PibDb::NON_EXISTING_IDENTITY);
+  db.addIdentity(identity);
+  BOOST_CHECK(db.hasIdentity(identity));
+  BOOST_CHECK_EQUAL(db.getDefaultIdentity(), identity);
 
-  db.addIdentity(userName, identity);
-  BOOST_CHECK_THROW(db.getDefaultIdentityOfUser(userName), PibDb::Error);
-  BOOST_CHECK_THROW(db.getDefaultIdentityOfUser("NonExistingUser"), PibDb::Error);
-  db.setDefaultIdentityOfUser(userName, identity);
-  BOOST_REQUIRE_NO_THROW(db.getDefaultIdentityOfUser(userName));
-  BOOST_CHECK_EQUAL(db.getDefaultIdentityOfUser(userName), identity);
+  // Add the second identity: /test/identity2
+  // Since the default identity exists,
+  // the new added identity will not be set as the default identity.
+  db.addIdentity(identity2);
+  BOOST_CHECK_EQUAL(db.hasIdentity(identity2), true);
+  BOOST_CHECK_EQUAL(db.getDefaultIdentity(), identity);
 
-  db.deleteUser(userName);
-  keyChain.deleteIdentity(testUser);
+  // Set the second identity: /test/identity2 as default explicitly
+  db.setDefaultIdentity(identity2);
+  BOOST_CHECK_EQUAL(db.getDefaultIdentity(), identity2);
+
+  // Delete identity /test/identity2, which is also the default one
+  // This will trigger the identityDeleted signal
+  // and also causes no default identity.
+  db.deleteIdentity(identity2);
+  BOOST_CHECK_EQUAL(db.hasIdentity(identity2), false);
+  BOOST_CHECK_EQUAL(db.hasIdentity(identity), true);
+  BOOST_CHECK_EQUAL(deletedIds.size(), 1);
+  BOOST_CHECK_EQUAL(deletedIds[0], identity2);
+  BOOST_CHECK_EQUAL(db.getDefaultIdentity(), PibDb::NON_EXISTING_IDENTITY);
+  deletedIds.clear();
+
+  // Add the second identity back
+  // Since there is no default identity (though another identity still exists),
+  // the second identity will be set as default.
+  db.addIdentity(identity2);
+  BOOST_CHECK_EQUAL(db.hasIdentity(identity2), true);
+  BOOST_CHECK_EQUAL(db.getDefaultIdentity(), identity2);
+
+  // Delete identity /test/identity
+  db.deleteIdentity(identity);
+  BOOST_CHECK_EQUAL(db.hasIdentity(identity), false);
+  BOOST_CHECK_EQUAL(db.hasIdentity(identity2), true);
+  BOOST_CHECK_EQUAL(deletedIds.size(), 1);
+  BOOST_CHECK_EQUAL(deletedIds[0], identity);
+  deletedIds.clear();
+
+  // Delete identity /test/identity2
+  db.deleteIdentity(identity2);
+  BOOST_CHECK_EQUAL(db.hasIdentity(identity), false);
+  BOOST_CHECK_EQUAL(db.hasIdentity(identity2), false);
+  BOOST_CHECK_EQUAL(deletedIds.size(), 1);
+  BOOST_CHECK_EQUAL(deletedIds[0], identity2);
+  deletedIds.clear();
 }
 
 
 BOOST_AUTO_TEST_CASE(KeyTest)
 {
-  KeyChain keyChain("sqlite3", "file");
+  db.identityDeleted.connect([this] (const Name& id) {
+      this->deletedIds.push_back(id);
+    });
 
-  std::string userName("test");
-  Name testUser("/localhost/pib/user/test");
-  Name testUserCertName = keyChain.createIdentity(testUser);
-  shared_ptr<IdentityCertificate> testUserCert = keyChain.getCertificate(testUserCertName);
-  db.addUser(*testUserCert);
+  db.keyDeleted.connect([this] (const Name& key) {
+      this->deletedKeys.push_back(key);
+    });
 
-  Name testId("/test/identity");
-  db.addIdentity(userName, testId);
-  Name testIdCertName = keyChain.createIdentity(testId);
-  Name testIdKeyName = keyChain.getDefaultKeyNameForIdentity(testId);
-  const name::Component& keyId = testIdKeyName[-1];
-  shared_ptr<PublicKey> key = keyChain.getPublicKey(testIdKeyName);
+  // Initialize id1
+  Name id1("/test/identity");
+  addIdentity(id1);
+  Name certName111 = m_keyChain.getDefaultCertificateNameForIdentity(id1);
+  shared_ptr<IdentityCertificate> cert111 = m_keyChain.getCertificate(certName111);
+  Name keyName11 = cert111->getPublicKeyName();
+  PublicKey& key11 = cert111->getPublicKeyInfo();
 
-  BOOST_CHECK_EQUAL(static_cast<bool>(db.getKey(userName, testId, keyId)), false);
-  db.addKey(userName, testId, keyId, *key);
-  BOOST_CHECK_EQUAL(static_cast<bool>(db.getKey(userName, testId, keyId)), true);
+  advanceClocks(time::milliseconds(100));
+  Name keyName12 = m_keyChain.generateRsaKeyPairAsDefault(id1);
+  shared_ptr<IdentityCertificate> cert121 = m_keyChain.selfSign(keyName12);
+  PublicKey& key12 = cert121->getPublicKeyInfo();
 
-  BOOST_CHECK_THROW(db.getDefaultKeyNameOfIdentity(userName, testId), PibDb::Error);
-  BOOST_CHECK_THROW(db.getDefaultKeyNameOfIdentity(userName, Name("/nonId")), PibDb::Error);
-  BOOST_CHECK_THROW(db.getDefaultKeyNameOfIdentity("NonExistingUser", testId), PibDb::Error);
-  db.setDefaultKeyNameOfIdentity(userName, testId, keyId);
-  BOOST_REQUIRE_NO_THROW(db.getDefaultKeyNameOfIdentity(userName, testId));
-  BOOST_CHECK_EQUAL(db.getDefaultKeyNameOfIdentity(userName, testId), testIdKeyName);
+  // Initialize id2
+  advanceClocks(time::milliseconds(100));
+  Name id2("/test/identity2");
+  addIdentity(id2);
+  Name certName211 = m_keyChain.getDefaultCertificateNameForIdentity(id2);
+  shared_ptr<IdentityCertificate> cert211 = m_keyChain.getCertificate(certName211);
+  Name keyName21 = cert211->getPublicKeyName();
+  PublicKey& key21 = cert211->getPublicKeyInfo();
 
-  db.deleteUser(userName);
-  keyChain.deleteIdentity(testId);
-  keyChain.deleteIdentity(testUser);
+  advanceClocks(time::milliseconds(100));
+  Name keyName22 = m_keyChain.generateRsaKeyPairAsDefault(id2);
+  shared_ptr<IdentityCertificate> cert221 = m_keyChain.selfSign(keyName22);
+  PublicKey& key22 = cert221->getPublicKeyInfo();
+
+  // Add a key, the corresponding identity should be added as well
+  // Since the PIB does not have any default identity set before,
+  // the added identity will be set as default.
+  // Since there is no default key for the identity,
+  // the added key will be set as default.
+  BOOST_CHECK_EQUAL(db.getDefaultKeyNameOfIdentity(id1), PibDb::NON_EXISTING_KEY);
+  BOOST_CHECK(db.getKey(keyName11) == nullptr);
+  db.addKey(keyName11, key11);
+  BOOST_CHECK(db.hasIdentity(id1));
+  BOOST_CHECK(db.getKey(keyName11) != nullptr);
+  BOOST_CHECK_EQUAL(db.getDefaultIdentity(), id1);
+  BOOST_CHECK_EQUAL(db.getDefaultKeyNameOfIdentity(id1), keyName11);
+
+  // Add the second key of /test/identity.
+  // Since the default key of /test/identity has been set,
+  // The new added key will not be set as default.
+  db.addKey(keyName12, key12);
+  BOOST_CHECK(db.getKey(keyName12) != nullptr);
+  BOOST_CHECK_EQUAL(db.getDefaultKeyNameOfIdentity(id1), keyName11);
+
+  // Explicitly set the second key as the default key of /test/identity
+  db.setDefaultKeyNameOfIdentity(keyName12);
+  BOOST_CHECK_EQUAL(db.getDefaultKeyNameOfIdentity(id1), keyName12);
+
+  // Delete the second key which is also the default key.
+  // This will trigger the keyDeleted signal.
+  // This will also cause no default key for /test/identity
+  db.deleteKey(keyName12);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName12), false);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName11), true);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName22), false);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName21), false);
+  BOOST_CHECK_EQUAL(deletedKeys.size(), 1);
+  BOOST_CHECK_EQUAL(deletedKeys[0], keyName12);
+  deletedKeys.clear();
+
+  // Add the second key back.
+  // Since there is no default key of /test/identity (although another key still exists)
+  // The second key will be set as the default key of /test/identity
+  BOOST_CHECK_EQUAL(db.getDefaultKeyNameOfIdentity(id1), PibDb::NON_EXISTING_KEY);
+  db.addKey(keyName12, key12);
+  BOOST_CHECK_EQUAL(db.getDefaultKeyNameOfIdentity(id1), keyName12);
+
+  // Prepare test for identity deletion
+  db.addKey(keyName21, key21);
+  db.addKey(keyName22, key22);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName12), true);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName22), true);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName21), true);
+  BOOST_CHECK_EQUAL(db.hasIdentity(id2), true);
+
+  // Delete the identity.
+  // All keys of the identity should also be deleted,
+  // and the keyDeleted signal should be triggered twice.
+  db.deleteIdentity(id1);
+  BOOST_CHECK_EQUAL(db.hasIdentity(id1), false);
+  BOOST_CHECK_EQUAL(db.hasIdentity(id2), true);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName11), false);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName12), false);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName21), true);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName22), true);
+  BOOST_CHECK_EQUAL(deletedKeys.size(), 2);
+  BOOST_CHECK(std::find(deletedKeys.begin(), deletedKeys.end(), keyName11) !=
+              deletedKeys.end());
+  BOOST_CHECK(std::find(deletedKeys.begin(), deletedKeys.end(), keyName12) !=
+              deletedKeys.end());
+  BOOST_CHECK_EQUAL(deletedIds.size(), 1);
+  BOOST_CHECK_EQUAL(deletedIds[0], id1);
 }
 
 BOOST_AUTO_TEST_CASE(CertTest)
 {
-  KeyChain keyChain("sqlite3", "file");
+  db.identityDeleted.connect([this] (const Name& id) {
+      this->deletedIds.push_back(id);
+    });
 
-  std::string userName("test");
-  Name testUser("/localhost/pib/user/test");
-  Name testUserCertName = keyChain.createIdentity(testUser);
-  shared_ptr<IdentityCertificate> testUserCert = keyChain.getCertificate(testUserCertName);
-  db.addUser(*testUserCert);
+  db.keyDeleted.connect([this] (const Name& key) {
+      this->deletedKeys.push_back(key);
+    });
 
-  Name testId("/test/identity");
-  db.addIdentity(userName, testId);
-  Name testIdCertName = keyChain.createIdentity(testId);
-  Name testIdKeyName = keyChain.getDefaultKeyNameForIdentity(testId);
-  const name::Component& keyId = testIdKeyName[-1];
-  shared_ptr<PublicKey> key = keyChain.getPublicKey(testIdKeyName);
-  db.addKey(userName, testId, keyId, *key);
-  shared_ptr<IdentityCertificate> cert = keyChain.getCertificate(testIdCertName);
+  db.certificateDeleted.connect([this] (const Name& certificate) {
+      this->deletedCerts.push_back(certificate);
+    });
 
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName), false);
-  db.addCertificate(userName, *cert);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName), true);
+  // Initialize id1
+  Name id1("/test/identity");
+  addIdentity(id1);
+  Name certName111 = m_keyChain.getDefaultCertificateNameForIdentity(id1);
+  shared_ptr<IdentityCertificate> cert111 = m_keyChain.getCertificate(certName111);
+  Name keyName11 = cert111->getPublicKeyName();
 
-  BOOST_CHECK_THROW(db.getDefaultCertNameOfKey(userName, testId, keyId), PibDb::Error);
-  BOOST_CHECK_THROW(db.getDefaultCertNameOfKey(userName, Name("/nonId"), keyId), PibDb::Error);
-  BOOST_CHECK_THROW(db.getDefaultCertNameOfKey("NonExistingUser", testId, keyId), PibDb::Error);
-  db.setDefaultCertNameOfKey(userName, testId, keyId, testIdCertName);
-  BOOST_REQUIRE_NO_THROW(db.getDefaultCertNameOfKey(userName, testId, keyId));
-  BOOST_CHECK_EQUAL(db.getDefaultCertNameOfKey(userName, testId, keyId), testIdCertName);
+  advanceClocks(time::milliseconds(100));
+  shared_ptr<IdentityCertificate> cert112 = m_keyChain.selfSign(keyName11);
+  Name certName112 = cert112->getName();
 
-  db.deleteUser(userName);
-  keyChain.deleteIdentity(testId);
-  keyChain.deleteIdentity(testUser);
+  advanceClocks(time::milliseconds(100));
+  Name keyName12 = m_keyChain.generateRsaKeyPairAsDefault(id1);
+  shared_ptr<IdentityCertificate> cert121 = m_keyChain.selfSign(keyName12);
+  Name certName121 = cert121->getName();
+
+  advanceClocks(time::milliseconds(100));
+  shared_ptr<IdentityCertificate> cert122 = m_keyChain.selfSign(keyName12);
+  Name certName122 = cert122->getName();
+
+  // Initialize id2
+  advanceClocks(time::milliseconds(100));
+  Name id2("/test/identity2");
+  addIdentity(id2);
+  Name certName211 = m_keyChain.getDefaultCertificateNameForIdentity(id2);
+  shared_ptr<IdentityCertificate> cert211 = m_keyChain.getCertificate(certName211);
+  Name keyName21 = cert211->getPublicKeyName();
+
+  advanceClocks(time::milliseconds(100));
+  shared_ptr<IdentityCertificate> cert212 = m_keyChain.selfSign(keyName21);
+  Name certName212 = cert212->getName();
+
+  advanceClocks(time::milliseconds(100));
+  Name keyName22 = m_keyChain.generateRsaKeyPairAsDefault(id2);
+  shared_ptr<IdentityCertificate> cert221 = m_keyChain.selfSign(keyName22);
+  Name certName221 = cert221->getName();
+
+  advanceClocks(time::milliseconds(100));
+  shared_ptr<IdentityCertificate> cert222 = m_keyChain.selfSign(keyName22);
+  Name certName222 = cert222->getName();
+
+  // Add a certificate
+  // This will also add the corresponding key and identity.
+  // Since there is no default setting before,
+  // The certificate will be set as the default one of the key, and so be the key and identity
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName111), false);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName11), false);
+  BOOST_CHECK_EQUAL(db.hasIdentity(id1), false);
+  BOOST_CHECK_EQUAL(db.getDefaultCertNameOfKey(keyName11), PibDb::NON_EXISTING_CERTIFICATE);
+  db.addCertificate(*cert111);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName111), true);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName11), true);
+  BOOST_CHECK_EQUAL(db.hasIdentity(id1), true);
+  BOOST_CHECK_EQUAL(db.getDefaultIdentity(), id1);
+  BOOST_CHECK_EQUAL(db.getDefaultKeyNameOfIdentity(id1), keyName11);
+  BOOST_CHECK_EQUAL(db.getDefaultCertNameOfKey(keyName11), certName111);
+
+  // Add the second certificate of the same key
+  // Since default certificate already exists, no default setting changes.
+  BOOST_CHECK(db.getCertificate(certName112) == nullptr);
+  db.addCertificate(*cert112);
+  BOOST_CHECK(db.getCertificate(certName112) != nullptr);
+  BOOST_CHECK_EQUAL(db.getDefaultCertNameOfKey(keyName11), certName111);
+
+  // Explicitly set the second certificate as the default one of the key.
+  db.setDefaultCertNameOfKey(certName112);
+  BOOST_CHECK_EQUAL(db.getDefaultCertNameOfKey(keyName11), certName112);
+
+  // Delete the default certificate
+  // This will trigger certificateDeleted signal
+  // and also causes no default certificate for the key.
+  db.deleteCertificate(certName112);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName112), false);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName111), true);
+  BOOST_CHECK_EQUAL(deletedCerts.size(), 1);
+  BOOST_CHECK_EQUAL(deletedCerts[0], certName112);
+  BOOST_CHECK_EQUAL(db.getDefaultCertNameOfKey(keyName11), PibDb::NON_EXISTING_CERTIFICATE);
+  deletedCerts.clear();
+
+  // Add the second certificate back
+  // Since there is no default certificate of the key (though another certificate still exists),
+  // the new added certificate will be set as default
+  db.addCertificate(*cert112);
+  BOOST_CHECK(db.getCertificate(certName112) != nullptr);
+  BOOST_CHECK_EQUAL(db.getDefaultCertNameOfKey(keyName11), certName112);
+
+  // Add entries for delete tests
+  db.addCertificate(*cert111);
+  db.addCertificate(*cert112);
+  db.addCertificate(*cert121);
+  db.addCertificate(*cert122);
+  db.addCertificate(*cert211);
+  db.addCertificate(*cert212);
+  db.addCertificate(*cert221);
+  db.addCertificate(*cert222);
+
+  // Delete the key.
+  // All the related certificates will be deleted as well.
+  db.deleteKey(keyName11);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName112), false);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName111), false);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName122), true);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName121), true);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName212), true);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName211), true);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName222), true);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName221), true);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName11), false);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName12), true);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName21), true);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName22), true);
+  BOOST_CHECK_EQUAL(deletedCerts.size(), 2);
+  BOOST_CHECK(std::find(deletedCerts.begin(), deletedCerts.end(), certName111) !=
+              deletedCerts.end());
+  BOOST_CHECK(std::find(deletedCerts.begin(), deletedCerts.end(), certName112) !=
+              deletedCerts.end());
+  BOOST_CHECK_EQUAL(deletedKeys.size(), 1);
+  BOOST_CHECK_EQUAL(deletedKeys[0], keyName11);
+  deletedCerts.clear();
+  deletedKeys.clear();
+
+  // Recover deleted entries
+  db.addCertificate(*cert111);
+  db.addCertificate(*cert112);
+
+  // Delete the identity
+  // All the related certificates and keys will be deleted as well.
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName111), true);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName112), true);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName11), true);
+  BOOST_CHECK_EQUAL(db.hasIdentity(id1), true);
+  db.deleteIdentity(id1);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName112), false);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName111), false);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName122), false);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName121), false);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName212), true);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName211), true);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName222), true);
+  BOOST_CHECK_EQUAL(db.hasCertificate(certName221), true);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName11), false);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName12), false);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName21), true);
+  BOOST_CHECK_EQUAL(db.hasKey(keyName22), true);
+  BOOST_CHECK_EQUAL(db.hasIdentity(id1), false);
+  BOOST_CHECK_EQUAL(db.hasIdentity(id2), true);
+  BOOST_CHECK_EQUAL(deletedCerts.size(), 4);
+  BOOST_CHECK(std::find(deletedCerts.begin(), deletedCerts.end(), certName111) !=
+              deletedCerts.end());
+  BOOST_CHECK(std::find(deletedCerts.begin(), deletedCerts.end(), certName112) !=
+              deletedCerts.end());
+  BOOST_CHECK(std::find(deletedCerts.begin(), deletedCerts.end(), certName121) !=
+              deletedCerts.end());
+  BOOST_CHECK(std::find(deletedCerts.begin(), deletedCerts.end(), certName122) !=
+              deletedCerts.end());
+  BOOST_CHECK_EQUAL(deletedKeys.size(), 2);
+  BOOST_CHECK(std::find(deletedKeys.begin(), deletedKeys.end(), keyName11) !=
+              deletedKeys.end());
+  BOOST_CHECK(std::find(deletedKeys.begin(), deletedKeys.end(), keyName12) !=
+              deletedCerts.end());
+  BOOST_CHECK_EQUAL(deletedIds.size(), 1);
+  BOOST_CHECK_EQUAL(deletedIds[0], id1);
 }
-
-BOOST_AUTO_TEST_CASE(DeleteTest)
-{
-  KeyChain keyChain("sqlite3", "file");
-
-  std::string userName("test");
-  Name testUser("/localhost/pib/user/test");
-  Name testUserCertName = keyChain.createIdentity(testUser);
-  shared_ptr<IdentityCertificate> testUserCert = keyChain.getCertificate(testUserCertName);
-  db.addUser(*testUserCert);
-
-  Name testId("/test/identity");
-  Name testIdCertName00 = keyChain.createIdentity(testId);
-  shared_ptr<IdentityCertificate> cert00 = keyChain.getCertificate(testIdCertName00);
-  Name testIdKeyName0 = cert00->getPublicKeyName();
-  const name::Component& testIdKeyId0 = testIdKeyName0[-1];
-
-  BOOST_CHECK_EQUAL(db.hasIdentity(userName, testId), false);
-  BOOST_CHECK_EQUAL(db.hasKey(userName, testId, testIdKeyId0), false);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName00), false);
-  db.addCertificate(userName, *cert00);
-  BOOST_CHECK_EQUAL(db.hasIdentity(userName, testId), true);
-  BOOST_CHECK_EQUAL(db.hasKey(userName, testId, testIdKeyId0), true);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName00), true);
-
-  shared_ptr<IdentityCertificate> cert01 = keyChain.selfSign(testIdKeyName0);
-  Name testIdCertName01 = cert01->getName();
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName01), false);
-  db.addCertificate(userName, *cert01);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName01), true);
-
-  Name testIdKeyName1 = keyChain.generateRsaKeyPair(testId);
-  const name::Component& testIdKeyId1 = testIdKeyName1[-1];
-  shared_ptr<IdentityCertificate> cert10 = keyChain.selfSign(testIdKeyName1);
-  Name testIdCertName10 = cert10->getName();
-  shared_ptr<IdentityCertificate> cert11 = keyChain.selfSign(testIdKeyName1);
-  Name testIdCertName11 = cert11->getName();
-
-  BOOST_CHECK_EQUAL(db.hasKey(userName, testId, testIdKeyId1), false);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName10), false);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName11), false);
-  db.addCertificate(userName, *cert10);
-  db.addCertificate(userName, *cert11);
-  BOOST_CHECK_EQUAL(db.hasKey(userName, testId, testIdKeyId1), true);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName10), true);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName11), true);
-
-  //delete a cert
-  db.deleteCertificate(userName, testIdCertName11);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName11), false);
-
-  db.addCertificate(userName, *cert11);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName11), true);
-
-  //delete a key
-  db.deleteKey(userName, testId, testIdKeyId1);
-  BOOST_CHECK_EQUAL(db.hasKey(userName, testId, testIdKeyId1), false);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName10), false);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName11), false);
-
-  db.addCertificate(userName, *cert10);
-  db.addCertificate(userName, *cert11);
-  BOOST_CHECK_EQUAL(db.hasKey(userName, testId, testIdKeyId1), true);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName10), true);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName11), true);
-
-  //delete an identity
-  db.deleteIdentity(userName, testId);
-  BOOST_CHECK_EQUAL(db.hasIdentity(userName, testId), false);
-  BOOST_CHECK_EQUAL(db.hasKey(userName, testId, testIdKeyId0), false);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName00), false);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName01), false);
-  BOOST_CHECK_EQUAL(db.hasKey(userName, testId, testIdKeyId1), false);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName10), false);
-  BOOST_CHECK_EQUAL(db.hasCertificate(userName, testIdCertName11), false);
-
-  db.deleteUser(userName);
-  keyChain.deleteIdentity(testId);
-  keyChain.deleteIdentity(testUser);
-}
-
 
 BOOST_AUTO_TEST_SUITE_END()
 

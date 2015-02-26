@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -25,155 +25,111 @@
 #include "security/key-chain.hpp"
 
 #include "boost-test.hpp"
-#include "identity-management-fixture.hpp"
+#include "identity-management-time-fixture.hpp"
 #include <boost/filesystem.hpp>
 
 namespace ndn {
 namespace pib {
 namespace tests {
 
-BOOST_FIXTURE_TEST_SUITE(TestPibValidator, IdentityManagementFixture)
+class PibDbTestFixture : public ndn::security::IdentityManagementTimeFixture
+{
+public:
+  PibDbTestFixture()
+    : tmpPath(boost::filesystem::path(TEST_CONFIG_PATH) / "DbTest")
+    , db(tmpPath.c_str())
+  {
+  }
+
+  ~PibDbTestFixture()
+  {
+    boost::filesystem::remove_all(tmpPath);
+  }
+
+  boost::filesystem::path tmpPath;
+  PibDb db;
+  std::vector<Name> deletedIds;
+  std::vector<Name> deletedKeys;
+  std::vector<Name> deletedCerts;
+  bool isProcessed;
+};
+
+BOOST_FIXTURE_TEST_SUITE(TestPibValidator, PibDbTestFixture)
 
 BOOST_AUTO_TEST_CASE(Basic)
 {
-  boost::filesystem::remove("/tmp/pib.db");
-  PibDb db("/tmp");
   PibValidator validator(db);
-  db.onUserChanged += bind(&PibValidator::handleUserChange, &validator, _1);
-  db.onKeyDeleted += bind(&PibValidator::handleKeyDeletion, &validator, _1, _2, _3);
-
-  Name root("/localhost/pib/user");
-  BOOST_REQUIRE(addIdentity(root, RsaKeyParams()));
-  shared_ptr<IdentityCertificate> rootCert = getCertificateForIdentity(root);
-  db.addRootUser(*rootCert);
 
   Name testUser("/localhost/pib/user/test");
   BOOST_REQUIRE(addIdentity(testUser, RsaKeyParams()));
-  shared_ptr<IdentityCertificate> testUserCert = getCertificateForIdentity(testUser);
-  db.addUser(*testUserCert);
+  Name testUserCertName = m_keyChain.getDefaultCertificateNameForIdentity(testUser);
+  shared_ptr<IdentityCertificate> testUserCert = m_keyChain.getCertificate(testUserCertName);
 
+  advanceClocks(time::milliseconds(100));
   Name testUser2("/localhost/pib/user/test2");
   BOOST_REQUIRE(addIdentity(testUser2, RsaKeyParams()));
-  shared_ptr<IdentityCertificate> testUser2Cert = getCertificateForIdentity(testUser2);
-  db.addUser(*testUser2Cert);
 
+  db.updateMgmtCertificate(*testUserCert);
+
+  advanceClocks(time::milliseconds(100));
   Name normalId("/normal/id");
   BOOST_REQUIRE(addIdentity(normalId, RsaKeyParams()));
-  shared_ptr<IdentityCertificate> normalIdCert = getCertificateForIdentity(normalId);
+  Name normalIdCertName = m_keyChain.getDefaultCertificateNameForIdentity(normalId);
+  shared_ptr<IdentityCertificate> normalIdCert = m_keyChain.getCertificate(normalIdCertName);
 
-  db.addIdentity("test", normalId);
-  db.addKey("test", normalId, normalIdCert->getPublicKeyName().get(-1),
-            normalIdCert->getPublicKeyInfo());
-  db.addCertificate("test", *normalIdCert);
+  db.addIdentity(normalId);
+  db.addKey(normalIdCert->getPublicKeyName(), normalIdCert->getPublicKeyInfo());
+  db.addCertificate(*normalIdCert);
 
   Name command1("/localhost/pib/test/verb/param");
   shared_ptr<Interest> interest1 = make_shared<Interest>(command1);
-  m_keyChain.signByIdentity(*interest1, root);
-  // root is trusted for any command, OK.
+  m_keyChain.signByIdentity(*interest1, testUser);
+  // "test" user is trusted for any command about itself, OK.
+  isProcessed = false;
   validator.validate(*interest1,
-    [] (const shared_ptr<const Interest>&) { BOOST_CHECK(true); },
-    [] (const shared_ptr<const Interest>&, const std::string&) { BOOST_CHECK(false); });
+    [this] (const shared_ptr<const Interest>&) {
+      isProcessed = true;
+      BOOST_CHECK(true);
+    },
+    [this] (const shared_ptr<const Interest>&, const std::string&) {
+      isProcessed = true;
+      BOOST_CHECK(false);
+    });
+  BOOST_CHECK(isProcessed);
 
   Name command2("/localhost/pib/test/verb/param");
   shared_ptr<Interest> interest2 = make_shared<Interest>(command2);
-  m_keyChain.signByIdentity(*interest2, testUser);
-  // "test" user is trusted for any command about itself, OK.
+  m_keyChain.signByIdentity(*interest2, testUser2);
+  // "test2" user is NOT trusted for any command about other user, MUST fail
+  isProcessed = false;
   validator.validate(*interest2,
-    [] (const shared_ptr<const Interest>&) { BOOST_CHECK(true); },
-    [] (const shared_ptr<const Interest>&, const std::string&) { BOOST_CHECK(false); });
+    [this] (const shared_ptr<const Interest>&) {
+      isProcessed = true;
+      BOOST_CHECK(false);
+    },
+    [this] (const shared_ptr<const Interest>&, const std::string&) {
+      isProcessed = true;
+      BOOST_CHECK(true);
+    });
+  BOOST_CHECK(isProcessed);
 
   Name command3("/localhost/pib/test/verb/param");
   shared_ptr<Interest> interest3 = make_shared<Interest>(command3);
-  m_keyChain.signByIdentity(*interest3, testUser2);
-  // "test2" user is NOT trusted for any command about other user, MUST fail
-  validator.validate(*interest3,
-    [] (const shared_ptr<const Interest>&) { BOOST_CHECK(false); },
-    [] (const shared_ptr<const Interest>&, const std::string&) { BOOST_CHECK(true); });
-
-  Name command4("/localhost/pib/test/verb/param");
-  shared_ptr<Interest> interest4 = make_shared<Interest>(command4);
-  m_keyChain.signByIdentity(*interest4, normalId);
+  m_keyChain.signByIdentity(*interest3, normalId);
   // "normalId" is in "test" pib, can be trusted for some commands about "test".
   // Detail checking is needed, but it is not the job of Validator, OK.
-  validator.validate(*interest4,
-    [] (const shared_ptr<const Interest>&) { BOOST_CHECK(true); },
-    [] (const shared_ptr<const Interest>&, const std::string&) { BOOST_CHECK(false); });
-
-  Name command5("/localhost/pib/test2/verb/param");
-  shared_ptr<Interest> interest5 = make_shared<Interest>(command5);
-  m_keyChain.signByIdentity(*interest5, normalId);
-  // "normalId" is NOT in "test2" pib, cannot be trusted for any command about "test2", MUST fail
-  validator.validate(*interest5,
-    [] (const shared_ptr<const Interest>&) { BOOST_CHECK(false); },
-    [] (const shared_ptr<const Interest>&, const std::string&) { BOOST_CHECK(true); });
-
-  db.deleteUser("test2");
-  db.deleteUser("test");
-  db.deleteUser("root");
-}
-
-BOOST_AUTO_TEST_CASE(AddNewUser)
-{
-  PibDb db("/tmp");
-  PibValidator validator(db);
-  db.onUserChanged += bind(&PibValidator::handleUserChange, &validator, _1);
-  db.onKeyDeleted += bind(&PibValidator::handleKeyDeletion, &validator, _1, _2, _3);
-
-  Name root("/localhost/pib/user");
-  BOOST_REQUIRE(addIdentity(root, RsaKeyParams()));
-  shared_ptr<IdentityCertificate> rootCert = getCertificateForIdentity(root);
-  db.addRootUser(*rootCert);
-
-  Name testUser("/localhost/pib/user/test");
-  BOOST_REQUIRE(addIdentity(testUser, RsaKeyParams()));
-  shared_ptr<IdentityCertificate> testUserCert = getCertificateForIdentity(testUser);
-  db.addUser(*testUserCert);
-
-  Name testUser2("/localhost/pib/user/test2");
-  BOOST_REQUIRE(addIdentity(testUser2, RsaKeyParams()));
-  shared_ptr<IdentityCertificate> testUser2Cert = getCertificateForIdentity(testUser2);
-
-  PibUser pibUser;
-  pibUser.setMgmtCert(*testUser2Cert);
-  UpdateParam updateParam(pibUser);
-  Name command1("/localhost/pib/test2/update");
-  command1.append(updateParam.wireEncode());
-  shared_ptr<Interest> interest1 = make_shared<Interest>(command1);
-  m_keyChain.signByIdentity(*interest1, testUser2);
-  // Self-registration is allowed. (Note: this is verification only, "test2" is NOT added yet). OK.
-  validator.validate(*interest1,
-    [] (const shared_ptr<const Interest>&) { BOOST_CHECK(true); },
-    [] (const shared_ptr<const Interest>&, const std::string&) { BOOST_CHECK(false); });
-
-  shared_ptr<Interest> interest2 = make_shared<Interest>(command1);
-  m_keyChain.signByIdentity(*interest2, testUser);
-  // "test" is NOT allowed to register any other user as a new user, MUST fail.
-  validator.validate(*interest2,
-    [] (const shared_ptr<const Interest>&) { BOOST_CHECK(false); },
-    [] (const shared_ptr<const Interest>&, const std::string&) { BOOST_CHECK(true); });
-
-  UpdateParam updateParam3(Name("/test/id"));
-  Name command3("/localhost/pib/test2/update");
-  command3.append(updateParam3.wireEncode());
-  shared_ptr<Interest> interest3 = make_shared<Interest>(command3);
-  m_keyChain.signByIdentity(*interest3, testUser2);
-  // "test2" does not exist, MUST fail.
+  isProcessed = false;
   validator.validate(*interest3,
-    [] (const shared_ptr<const Interest>&) { BOOST_CHECK(false); },
-    [] (const shared_ptr<const Interest>&, const std::string&) { BOOST_CHECK(true); });
+    [this] (const shared_ptr<const Interest>&) {
+      isProcessed = true;
+      BOOST_CHECK(true);
+    },
+    [this] (const shared_ptr<const Interest>&, const std::string&) {
+      isProcessed = true;
+      BOOST_CHECK(false);
+    });
+  BOOST_CHECK(isProcessed);
 
-  DeleteParam deleteParam4(Name("/test/id"));
-  Name command4("/localhost/pib/test2/delete");
-  command4.append(deleteParam4.wireEncode());
-  shared_ptr<Interest> interest4 = make_shared<Interest>(command4);
-  m_keyChain.signByIdentity(*interest4, testUser2);
-  // "test2" does not exist, MUST fail
-  validator.validate(*interest4,
-    [] (const shared_ptr<const Interest>&) { BOOST_CHECK(false); },
-    [] (const shared_ptr<const Interest>&, const std::string&) { BOOST_CHECK(true); });
-
-  db.deleteUser("test");
-  db.deleteUser("root");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

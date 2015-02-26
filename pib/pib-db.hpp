@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -24,12 +24,15 @@
 
 #include "common.hpp"
 #include "security/identity-certificate.hpp"
-#include "util/event-emitter.hpp"
+#include "util/signal.hpp"
 
 #include <set>
 #include <vector>
 
 struct sqlite3;
+struct sqlite3_context;
+struct Mem;
+typedef Mem sqlite3_value;
 
 namespace ndn {
 namespace pib {
@@ -51,6 +54,12 @@ typedef function<void(const std::string&, const Name&,
 class PibDb : noncopyable
 {
 public:
+  util::signal::Signal<PibDb> mgmtCertificateChanged;
+  util::signal::Signal<PibDb, Name> certificateDeleted;
+  util::signal::Signal<PibDb, Name> keyDeleted;
+  util::signal::Signal<PibDb, Name> identityDeleted;
+
+public:
   class Error : public std::runtime_error
   {
   public:
@@ -64,184 +73,184 @@ public:
   explicit
   PibDb(const std::string& dbDir = "");
 
-public: // User management
-
+public: // Owner management
   /**
-   * @brief Update root certificate
+   * @brief Update owner's management certificate
    *
-   * This method simply replaces the existing root user with the new one.
-   * Access control (whether this method should be called) is determined
-   * by PIB logic and validator.
+   * Since owner name is encoded in the management certificate,
+   * this method can also set the owner name if it is not set.
+   * If the owner name is set but does not match the one in the
+   * supplied certificate, it throws @p Error.
    *
    * @throws Error if supplied certificate is wrong
    */
   void
-  addRootUser(const IdentityCertificate& certificate);
+  updateMgmtCertificate(const IdentityCertificate& certificate);
 
   /**
-   * @brief Update normal user certificate
+   * @brief Get owner name
    *
-   * @throws Error if supplied certificate is wrong
+   * return empty string when owner name is not set.
    */
-  void
-  addUser(const IdentityCertificate& certificate);
+  std::string
+  getOwnerName() const;
 
-  /// @brief Delete a user and its related tables
-  void
-  deleteUser(const std::string& userName);
-
-  /// @brief Check if a user exists in PIB
-  bool
-  hasUser(const std::string& userName) const;
-
-  /// @brief Get a user's management cert, return NULL if the user does not exist
+  /** @brief Get the management cert
+   *
+   * return nullptr when the management cert is not set
+   */
   shared_ptr<IdentityCertificate>
-  getUserMgmtCertificate(const std::string& userName) const;
+  getMgmtCertificate() const;
 
-  /// @brief Get all users
+  /// @brief Set TPM locator
   void
-  listUsers(std::set<std::string>& users) const;
+  setTpmLocator(const std::string& tpmLocator);
 
+  /**
+   * @brief Get TPM locator
+   *
+   * return empty string when tpmLocator is not set.
+   */
+  std::string
+  getTpmLocator() const;
 
 public: // Identity management
 
-  /// @brief Add an identity in a user's Identity table
-  void
-  addIdentity(const std::string& userName, const Name& identity);
+  /**
+   * @brief Add an identity
+   *
+   * @return row id of the added identity, 0 if insert fails.
+   */
+  int64_t
+  addIdentity(const Name& identity);
 
-  /// @brief Delete an identity in a user's Identity table
+  /// @brief Delete an identity
   void
-  deleteIdentity(const std::string& userName, const Name& identity);
+  deleteIdentity(const Name& identity);
 
-  /// @brief Check if an identity exists in a user's Identity table
+  /// @brief Check if an identity exists
   bool
-  hasIdentity(const std::string& userName, const Name& identity) const;
+  hasIdentity(const Name& identity) const;
 
-  /// @brief Set the default identity of a user
+  /// @brief Get all identities
+  std::vector<Name>
+  listIdentities() const;
+
+  /// @brief Set the default identity
   void
-  setDefaultIdentityOfUser(const std::string& userName, const Name& identity);
+  setDefaultIdentity(const Name& identity);
 
   /**
-   * @brief Get the default identity of a user
+   * @brief Get the default identity
    *
-   * @throws Error if no default identity exists
+   * @return default identity or /localhost/reserved/non-existing-identity if no default identity
    */
   Name
-  getDefaultIdentityOfUser(const std::string& userName) const;
-
-  /// @brief Get all identities in a user's Identity table
-  void
-  listIdentitiesOfUser(const std::string& userName, std::vector<Name>& identities) const;
-
+  getDefaultIdentity() const;
 
 public: // Key management
 
-  /// @brief Add key in a user's Key table
+  /// @brief Add key
+  int64_t
+  addKey(const Name& keyName, const PublicKey& key);
+
+  /// @brief Delete key
   void
-  addKey(const std::string& userName,
-         const Name& identity,
-         const name::Component& keyId,
-         const PublicKey& key);
+  deleteKey(const Name& keyName);
+
+  /// @brief Check if a key exists
+  bool
+  hasKey(const Name& keyName) const;
 
   /**
-   * @brief Get key from a user's Key table
+   * @brief Get key
    *
-   * @return shared pointer to the key, empty pointer if the key does not exit
+   * @return shared pointer to the key, nullptr if the key does not exit
    */
   shared_ptr<PublicKey>
-  getKey(const std::string& userName,
-         const Name& identity,
-         const name::Component& keyId) const;
+  getKey(const Name& keyName) const;
 
-  /// @brief Delete key from a user's Key table
-  void
-  deleteKey(const std::string& userName,
-            const Name& identity,
-            const name::Component& keyId);
-
-  /// @brief Check if a key exists in a user's Key table
-  bool
-  hasKey(const std::string& userName,
-         const Name& identity,
-         const name::Component& keyId) const;
+  /// @brief Get all the key names of an identity
+  std::vector<Name>
+  listKeyNamesOfIdentity(const Name& identity) const;
 
   /// @brief Set an identity's default key name
   void
-  setDefaultKeyNameOfIdentity(const std::string& userName,
-                              const Name& identity,
-                              const name::Component& keyId);
+  setDefaultKeyNameOfIdentity(const Name& keyName);
 
   /**
    * @brief Get the default key name of an identity
    *
-   * @throws Error if no default key is set for the identity
+   * @return default key name or /localhost/reserved/non-existing-key if no default key
    */
   Name
-  getDefaultKeyNameOfIdentity(const std::string& userName, const Name& identity) const;
+  getDefaultKeyNameOfIdentity(const Name& identity) const;
 
-  /// @brief Get all the key names of an identity in a user's key table
+public: // Certificate management
+
+  /// @brief Add a certificate
+  int64_t
+  addCertificate(const IdentityCertificate& certificate);
+
+  /// @brief Delete a certificate
   void
-  listKeyNamesOfIdentity(const std::string& userName,
-                         const Name& identity, std::vector<Name>& keyNames) const;
+  deleteCertificate(const Name& certificateName);
 
-public: // Certificate Management
-
-  /// @brief Add a certificate in a user's cert table
-  void
-  addCertificate(const std::string& userName, const IdentityCertificate& certificate);
+  /// @brief Check if the certificate exist
+  bool
+  hasCertificate(const Name& certificateName) const;
 
   /**
-   * @brief Get a certificate from a user's cert table
+   * @brief Get a certificate
    *
-   * @return shared pointer to the certificate, empty pointer if the certificate does not exist
+   * @return shared pointer to the certificate, nullptr if the certificate does not exist
    */
   shared_ptr<IdentityCertificate>
-  getCertificate(const std::string& userName, const Name& certificateName) const;
+  getCertificate(const Name& certificateName) const;
 
-  /// @brief Delete a certificate from a user's cert table
-  void
-  deleteCertificate(const std::string& userName, const Name& certificateName);
-
-  /// @brief Check if the certificate exist in a user's cert table
-  bool
-  hasCertificate(const std::string& userName, const Name& certificateName) const;
+  /// @brief Get all the cert names of a key
+  std::vector<Name>
+  listCertNamesOfKey(const Name& keyName) const;
 
   /// @brief Set a key's default certificate name
   void
-  setDefaultCertNameOfKey(const std::string& userName,
-                          const Name& identity,
-                          const name::Component& keyId,
-                          const Name& certificateName);
+  setDefaultCertNameOfKey(const Name& certificateName);
 
   /**
    * @brief Get a key's default certificate name
    *
-   * @throws Error if no default cert is set for the key
+   * @return default certificate name or /localhost/reserved/non-existing-certificate if no default
+   *         certificate.
    */
   Name
-  getDefaultCertNameOfKey(const std::string& userName,
-                          const Name& identity,
-                          const name::Component& keyId) const;
-
-  /// @brief Get all the cert names of an key in a user's cert table
-  void
-  listCertNamesOfKey(const std::string& userName,
-                     const Name& identity, const name::Component& keyId,
-                     std::vector<Name>& certNames) const;
+  getDefaultCertNameOfKey(const Name& keyName) const;
 
 private:
-  bool
-  initializeTable(const std::string& tableName, const std::string& initCommand);
-
   void
-  addUser(const std::string& userName, const IdentityCertificate& certificate);
+  createDbDeleteTrigger();
+
+private:
+  static void
+  identityDeletedFun(sqlite3_context* context, int argc, sqlite3_value** argv);
+
+  static void
+  keyDeletedFun(sqlite3_context* context, int argc, sqlite3_value** argv);
+
+  static void
+  certDeletedFun(sqlite3_context* context, int argc, sqlite3_value** argv);
 
 public:
-  util::EventEmitter<std::string> onUserChanged;
-  util::EventEmitter<std::string, Name, name::Component> onKeyDeleted;
+  static const Name NON_EXISTING_IDENTITY;
+  static const Name NON_EXISTING_KEY;
+  static const Name NON_EXISTING_CERTIFICATE;
+
+private:
+  static const Name LOCALHOST_USER_PREFIX;
 
 private:
   sqlite3* m_database;
+
+  mutable std::string m_owner;
 };
 
 } // namespace pib

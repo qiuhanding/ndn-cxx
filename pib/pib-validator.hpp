@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -44,12 +44,7 @@ public:
   PibValidator(const PibDb& pibDb,
                size_t maxCacheSize = 1000);
 
-NDN_CXX_PUBLIC_WITH_TESTS_ELSE_PROTECTED:
-  void
-  handleUserChange(const std::string& user);
-
-  void
-  handleKeyDeletion(const std::string& user, const Name& identity, const name::Component& keyId);
+  ~PibValidator();
 
 protected:
   virtual void
@@ -66,22 +61,18 @@ protected:
               const OnDataValidationFailed& onValidationFailed,
               std::vector<shared_ptr<ValidationRequest>>& nextSteps);
 
-  shared_ptr<UserKeyCache>
-  getRootKeyCache();
-
 private:
-  struct UserKeyCache : noncopyable
-  {
-    shared_ptr<IdentityCertificate> mgmtCertificate;
-
-    // non-management keys
-    KeyCache regularKeys;
-  };
-
-  typedef std::unordered_map<std::string, shared_ptr<UserKeyCache>> PublicKeyCache;
 
   const PibDb& m_db;
-  PublicKeyCache m_keyCache;
+
+  bool m_isMgmtReady;
+  std::string m_owner;
+  shared_ptr<IdentityCertificate> m_mgmtCert;
+
+  KeyCache m_keyCache;
+
+  util::signal::ScopedConnection m_mgmtChangeConnection;
+  util::signal::ScopedConnection m_keyDeletedConnection;
 };
 
 } // namespace pib
