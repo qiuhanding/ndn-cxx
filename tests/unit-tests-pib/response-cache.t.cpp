@@ -25,9 +25,9 @@
 
 namespace ndn {
 namespace pib {
-namespace test {
+namespace tests {
 
-BOOST_AUTO_TEST_SUITE(PibTestResponseCache)
+BOOST_AUTO_TEST_SUITE(TestResponseCache)
 
 BOOST_AUTO_TEST_CASE(Basic)
 {
@@ -59,6 +59,6 @@ BOOST_AUTO_TEST_CASE(Basic)
 
 BOOST_AUTO_TEST_SUITE_END()
 
-} // namespace test
+} // namespace tests
 } // namespace pib
 } // namespace ndn

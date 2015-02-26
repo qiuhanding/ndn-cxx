@@ -30,9 +30,9 @@
 
 namespace ndn {
 namespace pib {
-namespace test {
+namespace tests {
 
-BOOST_FIXTURE_TEST_SUITE(PibTestPibValidator, IdentityManagementFixture)
+BOOST_FIXTURE_TEST_SUITE(TestPibValidator, IdentityManagementFixture)
 
 BOOST_AUTO_TEST_CASE(Basic)
 {
@@ -178,6 +178,6 @@ BOOST_AUTO_TEST_CASE(AddNewUser)
 
 BOOST_AUTO_TEST_SUITE_END()
 
-} // namespace test
+} // namespace tests
 } // namespace pib
 } // namespace ndn

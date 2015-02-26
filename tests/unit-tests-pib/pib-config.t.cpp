@@ -26,9 +26,9 @@
 
 namespace ndn {
 namespace pib {
-namespace test {
+namespace tests {
 
-BOOST_AUTO_TEST_SUITE(PibTestPibConfig)
+BOOST_AUTO_TEST_SUITE(TestPibConfig)
 
 BOOST_AUTO_TEST_CASE(Basic)
 {
@@ -83,6 +83,6 @@ BOOST_AUTO_TEST_CASE(MissingError)
 
 BOOST_AUTO_TEST_SUITE_END()
 
-} // namespace test
+} // namespace tests
 } // namespace pib
 } // namespace ndn

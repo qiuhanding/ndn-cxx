@@ -28,7 +28,7 @@
 
 namespace ndn {
 namespace pib {
-namespace test {
+namespace tests {
 
 class PibDbTestFixture
 {
@@ -48,7 +48,7 @@ public:
 };
 
 
-BOOST_FIXTURE_TEST_SUITE(PibTestPibDb, PibDbTestFixture)
+BOOST_FIXTURE_TEST_SUITE(TestPibDb, PibDbTestFixture)
 
 BOOST_AUTO_TEST_CASE(UserTest)
 {
@@ -266,6 +266,6 @@ BOOST_AUTO_TEST_CASE(DeleteTest)
 
 BOOST_AUTO_TEST_SUITE_END()
 
-} // namespace test
+} // namespace tests
 } // namespace pib
 } // namespace ndn
