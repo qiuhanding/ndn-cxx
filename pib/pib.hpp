@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
- * Copyright (c) 2013-2014 Regents of the University of California.
+ * Copyright (c) 2013-2015 Regents of the University of California.
  *
  * This file is part of ndn-cxx library (NDN C++ library with eXperimental eXtensions).
  *
@@ -22,8 +22,123 @@
 #ifndef NDN_PIB_PIB_HPP
 #define NDN_PIB_PIB_HPP
 
+#include "pib-db.hpp"
+#include "pib-validator.hpp"
+#include "cert-publisher.hpp"
+
+#include "face.hpp"
+#include "util/in-memory-storage-persistent.hpp"
+
+#include "security/pib/get-param.hpp"
+#include "security/pib/default-param.hpp"
+#include "security/pib/list-param.hpp"
+#include "security/pib/update-param.hpp"
+#include "security/pib/delete-param.hpp"
+#include "security/sec-tpm.hpp"
+
 namespace ndn {
 namespace pib {
+
+/// @brief implements the PIB service
+class Pib : noncopyable
+{
+public:
+  class Error : public std::runtime_error
+  {
+  public:
+    explicit
+    Error(const std::string& what)
+      : std::runtime_error(what)
+    {
+    }
+  };
+
+  /**
+   * @brief Constructor
+   *
+   * @param face The face pib used to receive queries and serve certificates.
+   * @param dbDir Absolute path to the directory of the pib database.
+   * @param tpmLocator URI to locate the TPM for pib service.
+   * @param owner Owner of the pib database.
+   */
+  Pib(Face& face,
+      const std::string& dbDir,
+      const std::string& tpmLocator,
+      const std::string& owner);
+
+  ~Pib();
+
+NDN_CXX_PUBLIC_WITH_TESTS_ELSE_PROTECTED:
+  PibDb&
+  getDb()
+  {
+    return m_db;
+  }
+
+  SecTpm&
+  getTpm()
+  {
+    return *m_tpm;
+  }
+
+  util::InMemoryStoragePersistent&
+  getResponseCache()
+  {
+    return m_responseCache;
+  }
+
+  const std::string&
+  getOwner() const
+  {
+    return m_owner;
+  }
+
+  const IdentityCertificate&
+  getMgmtCert() const
+  {
+    BOOST_ASSERT(m_mgmtCert != nullptr);
+    return *m_mgmtCert;
+  }
+
+private: // initialization
+  /// @brief initialize the PIB's own TPM.
+  void
+  initializeTpm(const std::string& tpmLocator);
+
+  /// @brief initialize management certificate
+  void
+  initializeMgmtCert();
+
+  std::shared_ptr<IdentityCertificate>
+  prepareCertificate(const Name& keyName, const KeyParams& keyParams,
+                     const time::system_clock::TimePoint& notBefore,
+                     const time::system_clock::TimePoint& notAfter,
+                     const Name& signerName = EMPTY_SIGNER_NAME);
+
+  /// @brief register prefix of PIB and each certificate
+  void
+  registerPrefix();
+
+private:
+
+  static const Name EMPTY_SIGNER_NAME;
+  static const Name PIB_PREFIX;
+  static const Name LOCALHOST_USER_PREFIX;
+
+  PibDb  m_db;
+  std::unique_ptr<SecTpm> m_tpm;
+  std::string m_owner;
+  std::shared_ptr<IdentityCertificate> m_mgmtCert;
+
+  PibValidator m_validator;
+
+  Face& m_face;
+  CertPublisher m_certPublisher;
+  util::InMemoryStoragePersistent m_responseCache;
+
+  const RegisteredPrefixId* m_pibPrefixId;
+  const RegisteredPrefixId* m_mgmtCertPrefixId;
+};
 
 } // namespace pib
 } // namespace ndn
