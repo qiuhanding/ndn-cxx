@@ -66,19 +66,16 @@ public:
   explicit
   UpdateParam(const IdentityCertificate& certificate, DefaultOpt defaultOpt = DEFAULT_OPT_NO);
 
-  uint32_t
+  explicit
+  UpdateParam(const Block& wire);
+
+  tlv::pib::ParamType
   getParamType() const
   {
     return tlv::pib::UpdateParam;
   }
 
-  std::string
-  getParamTypeText() const
-  {
-    return std::string("update");
-  }
-
-  uint32_t
+  tlv::pib::EntityType
   getEntityType() const
   {
     return m_entityType;
@@ -96,7 +93,7 @@ public:
   const PibCertificate&
   getCertificate() const;
 
-  const uint32_t
+  pib::DefaultOpt
   getDefaultOpt() const
   {
     return m_defaultOpt;
@@ -119,13 +116,16 @@ public:
   void
   wireDecode(const Block& wire);
 
+public:
+  static const std::string VERB;
+
 private:
-  uint32_t m_entityType;
+  tlv::pib::EntityType m_entityType;
   PibUser m_user;
   PibIdentity m_identity;
   PibPublicKey m_key;
   PibCertificate m_certificate;
-  uint32_t m_defaultOpt;
+  pib::DefaultOpt m_defaultOpt;
 
   mutable Block m_wire;
 };

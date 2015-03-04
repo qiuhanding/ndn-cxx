@@ -53,21 +53,19 @@ public:
 
   DeleteParam();
 
-  DeleteParam(const Name& name, uint32_t type = TYPE_ID);
+  explicit
+  DeleteParam(const Name& name, const pib::Type type = TYPE_ID);
 
-  uint32_t
+  explicit
+  DeleteParam(const Block& wire);
+
+  tlv::pib::ParamType
   getParamType() const
   {
     return tlv::pib::DeleteParam;
   }
 
-  std::string
-  getParamTypeText() const
-  {
-    return std::string("delete");
-  }
-
-  uint32_t
+  pib::Type
   getTargetType() const
   {
     return m_targetType;
@@ -100,8 +98,11 @@ public:
   void
   wireDecode(const Block& wire);
 
+public:
+  static const std::string VERB;
+
 private:
-  uint32_t m_targetType;
+  pib::Type m_targetType;
   Name m_targetName;
 
   mutable Block m_wire;

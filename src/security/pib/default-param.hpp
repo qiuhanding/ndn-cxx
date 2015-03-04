@@ -55,27 +55,26 @@ public:
 
   DefaultParam();
 
-  DefaultParam(uint32_t targetType, uint32_t originType, const Name& originName = Name());
+  DefaultParam(const pib::Type targetType,
+               const pib::Type originType,
+               const Name& originName = Name());
 
-  uint32_t
+  explicit
+  DefaultParam(const Block& wire);
+
+  tlv::pib::ParamType
   getParamType() const
   {
     return tlv::pib::DefaultParam;
   }
 
-  std::string
-  getParamTypeText() const
-  {
-    return std::string("default");
-  }
-
-  uint32_t
+  pib::Type
   getTargetType() const
   {
     return m_targetType;
   }
 
-  uint32_t
+  pib::Type
   getOriginType() const
   {
     return m_originType;
@@ -110,10 +109,13 @@ public:
   void
   wireDecode(const Block& wire);
 
+public:
+  static const std::string VERB;
+
 private:
-  uint32_t m_targetType;
-  uint32_t m_originType;
-  Name     m_originName;
+  pib::Type m_targetType;
+  pib::Type m_originType;
+  Name m_originName;
 
   mutable Block m_wire;
 };

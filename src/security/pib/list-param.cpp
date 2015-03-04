@@ -29,15 +29,22 @@ namespace pib {
 static_assert(std::is_base_of<tlv::Error, ListParam::Error>::value,
               "ListParam::Error must inherit from tlv::Error");
 
+const std::string ListParam::VERB("list");
+
 ListParam::ListParam()
   : m_originType(TYPE_USER)
 {
 }
 
-ListParam::ListParam(uint32_t originType, const Name& originName)
+ListParam::ListParam(const pib::Type originType, const Name& originName)
   : m_originType(originType)
   , m_originName(originName)
 {
+}
+
+ListParam::ListParam(const Block& wire)
+{
+  wireDecode(wire);
 }
 
 const Name&
@@ -116,7 +123,7 @@ ListParam::wireDecode(const Block& wire)
 
   // the first block must be PibType
   if (it != m_wire.elements_end() && it->type() == tlv::pib::Type) {
-    m_originType = readNonNegativeInteger(*it);
+    m_originType = static_cast<pib::Type>(readNonNegativeInteger(*it));
     it++;
   }
   else

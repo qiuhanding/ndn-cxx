@@ -29,6 +29,8 @@ namespace pib {
 static_assert(std::is_base_of<tlv::Error, UpdateParam::Error>::value,
               "UpdateParam::Error must inherit from tlv::Error");
 
+const std::string UpdateParam::VERB("update");
+
 UpdateParam::UpdateParam()
   : m_defaultOpt(DEFAULT_OPT_NO)
 {
@@ -60,6 +62,11 @@ UpdateParam::UpdateParam(const IdentityCertificate& certificate, DefaultOpt defa
   , m_certificate(certificate)
   , m_defaultOpt(defaultOpt)
 {
+}
+
+UpdateParam::UpdateParam(const Block& wire)
+{
+  wireDecode(wire);
 }
 
 const PibUser&
@@ -214,7 +221,7 @@ UpdateParam::wireDecode(const Block& wire)
 
   // the second block must be DefaultOpt
   if (it != m_wire.elements_end() && it->type() == tlv::pib::DefaultOpt) {
-    m_defaultOpt = readNonNegativeInteger(*it);
+    m_defaultOpt = static_cast<pib::DefaultOpt>(readNonNegativeInteger(*it));
     it++;
   }
   else

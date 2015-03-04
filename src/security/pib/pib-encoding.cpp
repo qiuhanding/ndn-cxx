@@ -20,7 +20,6 @@
  */
 
 #include "pib-encoding.hpp"
-#include "pib-common.hpp"
 #include "encoding/block-helpers.hpp"
 #include "encoding/encoding-buffer.hpp"
 #include "security/cryptopp.hpp"
@@ -40,6 +39,11 @@ PibIdentity::PibIdentity()
 PibIdentity::PibIdentity(const Name& identity)
   : m_identity(identity)
 {
+}
+
+PibIdentity::PibIdentity(const Block& wire)
+{
+  wireDecode(wire);
 }
 
 template<bool T>
@@ -101,6 +105,11 @@ PibPublicKey::PibPublicKey(const Name& keyName, const PublicKey& key)
   , m_keyName(keyName)
   , m_key(key)
 {
+}
+
+PibPublicKey::PibPublicKey(const Block& wire)
+{
+  wireDecode(wire);
 }
 
 const Name&
@@ -204,6 +213,11 @@ PibCertificate::PibCertificate(const IdentityCertificate& certificate)
 {
 }
 
+PibCertificate::PibCertificate(const Block& wire)
+{
+  wireDecode(wire);
+}
+
 const IdentityCertificate&
 PibCertificate::getCertificate() const
 {
@@ -272,6 +286,11 @@ PibNameList::PibNameList(const std::vector<Name>& names)
 {
 }
 
+PibNameList::PibNameList(const Block& wire)
+{
+  wireDecode(wire);
+}
+
 template<bool T>
 size_t
 PibNameList::wireEncode(EncodingImpl<T>& block) const
@@ -338,10 +357,15 @@ PibError::PibError()
 {
 }
 
-PibError::PibError(uint32_t errCode, const std::string& msg)
+PibError::PibError(const pib::ErrCode errCode, const std::string& msg)
   : m_errCode(errCode)
   , m_msg(msg)
 {
+}
+
+PibError::PibError(const Block& wire)
+{
+  wireDecode(wire);
 }
 
 template<bool T>
@@ -396,7 +420,7 @@ PibError::wireDecode(const Block& wire)
   Block::element_const_iterator it = m_wire.elements_begin();
 
   if (it != m_wire.elements_end() && it->type() == tlv::pib::ErrorCode) {
-    m_errCode = readNonNegativeInteger(*it);
+    m_errCode = static_cast<pib::ErrCode>(readNonNegativeInteger(*it));
     it++;
   }
   else
@@ -414,6 +438,11 @@ PibUser::PibUser()
 {
 }
 
+PibUser::PibUser(const Block& wire)
+{
+  wireDecode(wire);
+}
+
 void
 PibUser::setMgmtCert(const IdentityCertificate& mgmtCert)
 {
@@ -421,11 +450,26 @@ PibUser::setMgmtCert(const IdentityCertificate& mgmtCert)
   m_mgmtCert = mgmtCert;
 }
 
+void
+PibUser::setTpmLocator(const std::string& tpmLocator)
+{
+  m_wire.reset();
+  m_tpmLocator = tpmLocator;
+}
+
 template<bool T>
 size_t
 PibUser::wireEncode(EncodingImpl<T>& block) const
 {
-  size_t totalLength = prependBlock(block, m_mgmtCert.wireEncode());
+  size_t totalLength = 0;
+
+  if (!m_tpmLocator.empty())
+    totalLength = prependByteArrayBlock(block, tlv::pib::TpmLocator,
+                                        reinterpret_cast<const uint8_t*>(m_tpmLocator.c_str()),
+                                        m_tpmLocator.size());
+
+  totalLength += prependBlock(block, m_mgmtCert.wireEncode());
+
   totalLength += block.prependVarNumber(totalLength);
   totalLength += block.prependVarNumber(tlv::pib::User);
 
@@ -475,6 +519,10 @@ PibUser::wireDecode(const Block& wire)
   }
   else
     throw tlv::Error("PibError requires the first sub-TLV to be Data");
+
+  if (it != m_wire.elements_end() && it->type() == tlv::pib::TpmLocator) {
+    m_tpmLocator = string(reinterpret_cast<const char*>(it->value()), it->value_size());
+  }
 }
 
 } // namespace pib

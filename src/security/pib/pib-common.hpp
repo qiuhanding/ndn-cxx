@@ -35,6 +35,8 @@ enum {
   OFFSET_NONCE             = 6,
   OFFSET_SIG_INFO          = 7,
   OFFSET_SIG_VALUE         = 8,
+
+  MIN_PIB_INTEREST_SIZE    = 5,
   SIGNED_PIB_INTEREST_SIZE = 9
 };
 
@@ -90,24 +92,29 @@ enum ErrCode {
 namespace tlv {
 namespace pib {
 
-enum {
-  // Param
+enum ParamType {
   GetParam          = 128, // 0x80
   DefaultParam      = 129, // 0x81
   ListParam         = 130, // 0x82
   UpdateParam       = 131, // 0x83
-  DeleteParam       = 132, // 0x84
+  DeleteParam       = 132  // 0x84
+};
 
-  // Other
-  Type              = 144, // 0x90
+enum EntityType {
+  User              = 144, // 0x90
   Identity          = 145, // 0x91
   PublicKey         = 146, // 0x92
-  Certificate       = 147, // 0x93
+  Certificate       = 147  // 0x93
+};
+
+// Other
+enum {
   Bytes             = 148, // 0x94
   DefaultOpt        = 149, // 0x95
   NameList          = 150, // 0x96
-  User              = 151, // 0x97
+  Type              = 151, // 0x97
   Error             = 152, // 0x98
+  TpmLocator        = 153, // 0x99
 
   // ErrorCode
   ErrorCode         = 252  // 0xfc
@@ -115,7 +122,6 @@ enum {
 
 } // namespace pib
 } // namespace tlv
-
 } // namespace ndn
 
 

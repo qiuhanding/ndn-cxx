@@ -53,21 +53,18 @@ public:
 
   GetParam();
 
-  GetParam(uint32_t targetType, const Name& targetName);
+  GetParam(const pib::Type targetType, const Name& targetName);
 
-  uint32_t
+  explicit
+  GetParam(const Block& wire);
+
+  tlv::pib::ParamType
   getParamType() const
   {
     return tlv::pib::GetParam;
   }
 
-  std::string
-  getParamTypeText() const
-  {
-    return std::string("get");
-  }
-
-  uint32_t
+  pib::Type
   getTargetType() const
   {
     return m_targetType;
@@ -102,9 +99,12 @@ public:
   void
   wireDecode(const Block& wire);
 
+public:
+  static const std::string VERB;
+
 private:
-  uint32_t m_targetType;
-  Name     m_targetName;
+  pib::Type m_targetType;
+  Name m_targetName;
 
   mutable Block m_wire;
 };

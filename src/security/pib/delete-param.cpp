@@ -29,15 +29,22 @@ namespace pib {
 static_assert(std::is_base_of<tlv::Error, DeleteParam::Error>::value,
               "DeleteParam::Error must inherit from tlv::Error");
 
+const std::string DeleteParam::VERB("delete");
+
 DeleteParam::DeleteParam()
   : m_targetType(TYPE_DEFAULT)
 {
 }
 
-DeleteParam::DeleteParam(const Name& name, uint32_t type)
+DeleteParam::DeleteParam(const Name& name, pib::Type type)
   : m_targetType(type)
   , m_targetName(name)
 {
+}
+
+DeleteParam::DeleteParam(const Block& wire)
+{
+  wireDecode(wire);
 }
 
 template<bool T>
@@ -100,7 +107,7 @@ DeleteParam::wireDecode(const Block& wire)
 
   // the first block must be Type
   if (it != m_wire.elements_end() && it->type() == tlv::pib::Type) {
-    m_targetType = readNonNegativeInteger(*it);
+    m_targetType = static_cast<pib::Type>(readNonNegativeInteger(*it));
     it++;
   }
   else

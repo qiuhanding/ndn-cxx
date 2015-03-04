@@ -23,6 +23,7 @@
 #define NDN_PIB_PIB_ENCODING_HPP
 
 #include "../identity-certificate.hpp"
+#include "pib-common.hpp"
 
 namespace ndn {
 namespace pib {
@@ -41,6 +42,9 @@ public:
 
   explicit
   PibIdentity(const Name& identity);
+
+  explicit
+  PibIdentity(const Block& wire);
 
   const Name&
   getIdentity() const
@@ -82,6 +86,9 @@ public:
   PibPublicKey();
 
   PibPublicKey(const Name& keyName, const PublicKey& key);
+
+  explicit
+  PibPublicKey(const Block& wire);
 
   const Name&
   getKeyName() const;
@@ -127,6 +134,9 @@ public:
   explicit
   PibCertificate(const IdentityCertificate& certificate);
 
+  explicit
+  PibCertificate(const Block& wire);
+
   const IdentityCertificate&
   getCertificate() const;
 
@@ -164,6 +174,9 @@ public:
 
   explicit
   PibNameList(const std::vector<Name>& names);
+
+  explicit
+  PibNameList(const Block& wire);
 
   const std::vector<Name>&
   getNameList() const
@@ -203,9 +216,12 @@ public:
   PibError();
 
   explicit
-  PibError(uint32_t errCode, const std::string& msg = "");
+  PibError(const pib::ErrCode errCode, const std::string& msg = "");
 
-  uint32_t
+  explicit
+  PibError(const Block& wire);
+
+  pib::ErrCode
   getErrorCode() const
   {
     return m_errCode;
@@ -233,7 +249,7 @@ public:
   wireDecode(const Block& wire);
 
 private:
-  uint32_t m_errCode;
+  pib::ErrCode m_errCode;
   std::string m_msg;
 
   mutable Block m_wire;
@@ -251,6 +267,9 @@ class PibUser
 public:
   PibUser();
 
+  explicit
+  PibUser(const Block& wire);
+
   void
   setMgmtCert(const IdentityCertificate& mgmtCert);
 
@@ -258,6 +277,15 @@ public:
   getMgmtCert() const
   {
     return m_mgmtCert;
+  }
+
+  void
+  setTpmLocator(const std::string& tpmLocator);
+
+  const std::string&
+  getTpmLocator() const
+  {
+    return m_tpmLocator;
   }
 
   template<bool T>
@@ -277,6 +305,7 @@ public:
 
 private:
   IdentityCertificate m_mgmtCert;
+  std::string m_tpmLocator;
 
   mutable Block m_wire;
 };

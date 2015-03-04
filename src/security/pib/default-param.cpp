@@ -29,17 +29,26 @@ namespace pib {
 static_assert(std::is_base_of<tlv::Error, DefaultParam::Error>::value,
               "DefaultParam::Error must inherit from tlv::Error");
 
+const std::string DefaultParam::VERB("default");
+
 DefaultParam::DefaultParam()
   : m_targetType(TYPE_DEFAULT)
   , m_originType(TYPE_DEFAULT)
 {
 }
 
-DefaultParam::DefaultParam(uint32_t targetType, uint32_t originType, const Name& originName)
+DefaultParam::DefaultParam(const pib::Type targetType,
+                           const pib::Type originType,
+                           const Name& originName)
   : m_targetType(targetType)
   , m_originType(originType)
   , m_originName(originName)
 {
+}
+
+DefaultParam::DefaultParam(const Block& wire)
+{
+  wireDecode(wire);
 }
 
 const Name&
@@ -119,7 +128,7 @@ DefaultParam::wireDecode(const Block& wire)
 
   // the first block must be PibType
   if (it != m_wire.elements_end() && it->type() == tlv::pib::Type) {
-    m_targetType = readNonNegativeInteger(*it);
+    m_targetType = static_cast<pib::Type>(readNonNegativeInteger(*it));
     it++;
   }
   else
@@ -127,7 +136,7 @@ DefaultParam::wireDecode(const Block& wire)
 
   // the second block must be PibType
   if (it != m_wire.elements_end() && it->type() == tlv::pib::Type) {
-    m_originType = readNonNegativeInteger(*it);
+    m_originType = static_cast<pib::Type>(readNonNegativeInteger(*it));
     it++;
   }
   else

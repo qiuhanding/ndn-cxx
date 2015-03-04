@@ -29,15 +29,22 @@ namespace pib {
 static_assert(std::is_base_of<tlv::Error, GetParam::Error>::value,
               "GetParam::Error must inherit from tlv::Error");
 
+const std::string GetParam::VERB("get");
+
 GetParam::GetParam()
   : m_targetType(TYPE_USER)
 {
 }
 
-GetParam::GetParam(uint32_t targetType, const Name& targetName)
+GetParam::GetParam(const pib::Type targetType, const Name& targetName)
   : m_targetType(targetType)
   , m_targetName(targetName)
 {
+}
+
+GetParam::GetParam(const Block& wire)
+{
+  wireDecode(wire);
 }
 
 const Name&
@@ -117,7 +124,7 @@ GetParam::wireDecode(const Block& wire)
 
   // the first block must be Type
   if (it != m_wire.elements_end() && it->type() == tlv::pib::Type) {
-    m_targetType = readNonNegativeInteger(*it);
+    m_targetType = static_cast<pib::Type>(readNonNegativeInteger(*it));
     it++;
   }
   else
