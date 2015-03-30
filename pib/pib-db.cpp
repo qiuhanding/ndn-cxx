@@ -210,6 +210,13 @@ static const string INITIALIZATION =
   "  FOR EACH ROW                                \n"
   "  BEGIN                                       \n"
   "    SELECT certDeleted (OLD.certificate_name);\n"
+  "  END;                                        \n"
+  "CREATE TRIGGER IF NOT EXISTS                  \n"
+  "  cert_insert_trigger                         \n"
+  "  AFTER INSERT ON certificates                \n"
+  "  FOR EACH ROW                                \n"
+  "  BEGIN                                       \n"
+  "    SELECT certInserted (NEW.certificate_name);\n"
   "  END;                                        \n";
 
 
@@ -323,6 +330,12 @@ PibDb::createDbDeleteTrigger()
                                 PibDb::certDeletedFun, nullptr, nullptr);
   if (res != SQLITE_OK)
     throw Error("Cannot create function ``certDeleted''");
+
+  res = sqlite3_create_function(m_database, "certInserted", -1, SQLITE_UTF8,
+                                reinterpret_cast<void*>(this),
+                                PibDb::certInsertedFun, nullptr, nullptr);
+  if (res != SQLITE_OK)
+    throw Error("Cannot create function ``certInserted''");
 }
 
 void
@@ -356,6 +369,17 @@ PibDb::certDeletedFun(sqlite3_context* context, int argc, sqlite3_value** argv)
   Name certName(Block(sqlite3_value_blob(argv[0]), sqlite3_value_bytes(argv[0])));
 
   pibDb->certificateDeleted(certName);
+}
+
+void
+PibDb::certInsertedFun(sqlite3_context* context, int argc, sqlite3_value** argv)
+{
+  BOOST_ASSERT(argc == 1);
+
+  PibDb* pibDb = reinterpret_cast<PibDb*>(sqlite3_user_data(context));
+  Name certName(Block(sqlite3_value_blob(argv[0]), sqlite3_value_bytes(argv[0])));
+
+  pibDb->certificateInserted(certName);
 }
 
 void

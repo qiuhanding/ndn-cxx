@@ -49,6 +49,7 @@ public:
   std::vector<Name> deletedIds;
   std::vector<Name> deletedKeys;
   std::vector<Name> deletedCerts;
+  std::vector<Name> insertedCerts;
 };
 
 
@@ -274,6 +275,10 @@ BOOST_AUTO_TEST_CASE(CertTest)
       this->deletedCerts.push_back(certificate);
     });
 
+  db.certificateInserted.connect([this] (const Name& certificate) {
+      this->insertedCerts.push_back(certificate);
+    });
+
   // Initialize id1
   Name id1("/test/identity");
   addIdentity(id1);
@@ -330,6 +335,10 @@ BOOST_AUTO_TEST_CASE(CertTest)
   BOOST_CHECK_EQUAL(db.getDefaultIdentity(), id1);
   BOOST_CHECK_EQUAL(db.getDefaultKeyNameOfIdentity(id1), keyName11);
   BOOST_CHECK_EQUAL(db.getDefaultCertNameOfKey(keyName11), certName111);
+  BOOST_CHECK_EQUAL(insertedCerts.size(), 1);
+  BOOST_CHECK(std::find(insertedCerts.begin(), insertedCerts.end(), certName111) !=
+              insertedCerts.end());
+  insertedCerts.clear();
 
   // Add the second certificate of the same key
   // Since default certificate already exists, no default setting changes.
@@ -337,6 +346,10 @@ BOOST_AUTO_TEST_CASE(CertTest)
   db.addCertificate(*cert112);
   BOOST_CHECK(db.getCertificate(certName112) != nullptr);
   BOOST_CHECK_EQUAL(db.getDefaultCertNameOfKey(keyName11), certName111);
+  BOOST_CHECK_EQUAL(insertedCerts.size(), 1);
+  BOOST_CHECK(std::find(insertedCerts.begin(), insertedCerts.end(), certName112) !=
+              insertedCerts.end());
+  insertedCerts.clear();
 
   // Explicitly set the second certificate as the default one of the key.
   db.setDefaultCertNameOfKey(certName112);
@@ -359,16 +372,31 @@ BOOST_AUTO_TEST_CASE(CertTest)
   db.addCertificate(*cert112);
   BOOST_CHECK(db.getCertificate(certName112) != nullptr);
   BOOST_CHECK_EQUAL(db.getDefaultCertNameOfKey(keyName11), certName112);
+  insertedCerts.clear();
 
   // Add entries for delete tests
-  db.addCertificate(*cert111);
-  db.addCertificate(*cert112);
+  db.addCertificate(*cert111); // already exists no certInserted signal emitted
+  db.addCertificate(*cert112); // already exists no certInserted signal emitted
   db.addCertificate(*cert121);
   db.addCertificate(*cert122);
   db.addCertificate(*cert211);
   db.addCertificate(*cert212);
   db.addCertificate(*cert221);
   db.addCertificate(*cert222);
+  BOOST_CHECK_EQUAL(insertedCerts.size(), 6);
+  BOOST_CHECK(std::find(insertedCerts.begin(), insertedCerts.end(), certName121) !=
+              insertedCerts.end());
+  BOOST_CHECK(std::find(insertedCerts.begin(), insertedCerts.end(), certName122) !=
+              insertedCerts.end());
+  BOOST_CHECK(std::find(insertedCerts.begin(), insertedCerts.end(), certName211) !=
+              insertedCerts.end());
+  BOOST_CHECK(std::find(insertedCerts.begin(), insertedCerts.end(), certName212) !=
+              insertedCerts.end());
+  BOOST_CHECK(std::find(insertedCerts.begin(), insertedCerts.end(), certName221) !=
+              insertedCerts.end());
+  BOOST_CHECK(std::find(insertedCerts.begin(), insertedCerts.end(), certName222) !=
+              insertedCerts.end());
+  insertedCerts.clear();
 
   // Delete the key.
   // All the related certificates will be deleted as well.

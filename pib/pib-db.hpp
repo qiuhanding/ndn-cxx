@@ -58,6 +58,7 @@ public:
   util::signal::Signal<PibDb, Name> certificateDeleted;
   util::signal::Signal<PibDb, Name> keyDeleted;
   util::signal::Signal<PibDb, Name> identityDeleted;
+  util::signal::Signal<PibDb, Name> certificateInserted;
 
 public:
   class Error : public std::runtime_error
@@ -238,6 +239,9 @@ private:
 
   static void
   certDeletedFun(sqlite3_context* context, int argc, sqlite3_value** argv);
+
+  static void
+  certInsertedFun(sqlite3_context* context, int argc, sqlite3_value** argv);
 
 public:
   static const Name NON_EXISTING_IDENTITY;
