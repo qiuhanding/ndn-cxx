@@ -30,6 +30,8 @@
 #include "util/crypto.hpp"
 #include "util/concepts.hpp"
 
+#include <boost/lexical_cast.hpp>
+
 namespace ndn {
 namespace pib {
 
@@ -54,6 +56,20 @@ parseTpmLocator(const std::string& tpmLocator)
   }
 }
 
+// \todo make this a static method in KeyChain
+static inline void
+signWithDigestSha256(Data& data)
+{
+  DigestSha256 sig;
+  data.setSignature(sig);
+  Block sigValue(tlv::SignatureValue,
+                 crypto::sha256(data.wireEncode().value(),
+                                data.wireEncode().value_size() -
+                                data.getSignature().getValue().size()));
+  data.setSignatureValue(sigValue);
+  data.wireEncode();
+}
+
 Pib::Pib(Face& face,
          const std::string& dbDir,
          const std::string& tpmLocator,
@@ -64,6 +80,7 @@ Pib::Pib(Face& face,
   , m_validator(m_db)
   , m_face(face)
   , m_certPublisher(m_face, m_db)
+  , m_getProcessor(m_db)
 {
   if (!m_db.getOwnerName().empty() && m_db.getOwnerName() != owner)
     throw Error("owner argument differs from OwnerName in database");
@@ -82,7 +99,7 @@ Pib::~Pib()
 {
   m_face.unsetInterestFilter(m_pibMgmtFilterId);
   m_face.unsetInterestFilter(m_pibPrefixId);
-
+  m_face.unsetInterestFilter(m_pibGetFilterId);
 }
 
 void
@@ -198,6 +215,32 @@ Pib::registerPrefix()
                                  m_face.put(*m_mgmtCert);
                                }
                              });
+
+  // set interest filter for get command
+  m_pibGetFilterId =
+    m_face.setInterestFilter(Name(pibPrefix).append(GetParam::VERB),
+                             [this] (const InterestFilter&, const Interest& interest) {
+                               std::pair<bool, Block> result = m_getProcessor(interest);
+                               if (result.first)
+                                 returnResult(Name(interest.getName()).appendVersion(),
+                                              result.second);
+                             });
+}
+
+void
+Pib::returnResult(const Name& dataName, const Block& content)
+{
+  shared_ptr<Data> data = make_shared<Data>(dataName);
+
+  data->setFreshnessPeriod(time::milliseconds::zero());
+  data->setContent(content);
+  signWithDigestSha256(*data);
+
+  // Put data into response cache
+  m_responseCache.insert(*data);
+
+  // Put data to face.
+  m_face.put(*data);
 }
 
 } // namespace pib

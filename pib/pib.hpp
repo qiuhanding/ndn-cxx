@@ -29,11 +29,8 @@
 #include "face.hpp"
 #include "util/in-memory-storage-persistent.hpp"
 
-#include "security/pib/get-param.hpp"
-#include "security/pib/default-param.hpp"
-#include "security/pib/list-param.hpp"
-#include "security/pib/update-param.hpp"
-#include "security/pib/delete-param.hpp"
+#include "get-query-processor.hpp"
+
 #include "security/sec-tpm.hpp"
 
 namespace ndn {
@@ -115,9 +112,12 @@ private: // initialization
                      const time::system_clock::TimePoint& notAfter,
                      const Name& signerName = EMPTY_SIGNER_NAME);
 
-  /// @brief register prefix of PIB and each certificate
+  /// @brief register prefix for PIB query and management certificate
   void
   registerPrefix();
+
+  void
+  returnResult(const Name& dataName, const Block& content);
 
 private:
 
@@ -136,8 +136,11 @@ private:
   CertPublisher m_certPublisher;
   util::InMemoryStoragePersistent m_responseCache;
 
+  GetQueryProcessor m_getProcessor;
+
   const RegisteredPrefixId* m_pibPrefixId;
   const InterestFilterId* m_pibMgmtFilterId;
+  const InterestFilterId* m_pibGetFilterId;
 };
 
 } // namespace pib
