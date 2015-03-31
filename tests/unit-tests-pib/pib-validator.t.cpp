@@ -32,29 +32,26 @@ namespace ndn {
 namespace pib {
 namespace tests {
 
-class PibDbTestFixture : public ndn::security::IdentityManagementTimeFixture
+class PibValidatorFixture : public ndn::security::IdentityManagementTimeFixture
 {
 public:
-  PibDbTestFixture()
+  PibValidatorFixture()
     : tmpPath(boost::filesystem::path(TEST_CONFIG_PATH) / "DbTest")
     , db(tmpPath.c_str())
   {
   }
 
-  ~PibDbTestFixture()
+  ~PibValidatorFixture()
   {
     boost::filesystem::remove_all(tmpPath);
   }
 
   boost::filesystem::path tmpPath;
   PibDb db;
-  std::vector<Name> deletedIds;
-  std::vector<Name> deletedKeys;
-  std::vector<Name> deletedCerts;
   bool isProcessed;
 };
 
-BOOST_FIXTURE_TEST_SUITE(TestPibValidator, PibDbTestFixture)
+BOOST_FIXTURE_TEST_SUITE(TestPibValidator, PibValidatorFixture)
 
 BOOST_AUTO_TEST_CASE(Basic)
 {
