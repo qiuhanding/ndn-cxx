@@ -36,7 +36,10 @@ using std::set;
 const Name PibDb::NON_EXISTING_IDENTITY("/localhost/reserved/non-existing-identity");
 const Name PibDb::NON_EXISTING_KEY("/localhost/reserved/non-existing-key");
 const Name PibDb::NON_EXISTING_CERTIFICATE("/localhost/reserved/non-existing-certificate");
-const Name PibDb::LOCALHOST_USER_PREFIX("/localhost/pib/user");
+
+const Name PibDb::LOCALHOST_PIB("/localhost/pib");
+const name::Component PibDb::MGMT_LABEL("mgmt");
+
 
 static const string INITIALIZATION =
   "CREATE TABLE IF NOT EXISTS                    \n"
@@ -387,11 +390,13 @@ PibDb::updateMgmtCertificate(const IdentityCertificate& certificate)
 {
   const Name& keyName = certificate.getPublicKeyName();
 
-  // Name of mgmt key should be "/localhost/pib/user/[UserName]/[KeyID]"
-  if (keyName.size() != 5 || keyName.compare(0, 3, LOCALHOST_USER_PREFIX))
+  // Name of mgmt key should be "/localhost/pib/[UserName]/mgmt/[KeyID]"
+  if (keyName.size() != 5 ||
+      keyName.compare(0, 2, LOCALHOST_PIB) ||
+      keyName.get(3) != MGMT_LABEL)
     throw Error("PibDb::updateMgmtCertificate: certificate does not follow the naming convention");
 
-  string owner = keyName.get(3).toUri();
+  string owner = keyName.get(2).toUri();
   sqlite3_stmt* statement;
   if (!m_owner.empty()) {
     if (m_owner != owner)

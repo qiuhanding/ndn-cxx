@@ -249,7 +249,8 @@ public:
   static const Name NON_EXISTING_CERTIFICATE;
 
 private:
-  static const Name LOCALHOST_USER_PREFIX;
+  static const Name LOCALHOST_PIB;
+  static const name::Component MGMT_LABEL;
 
 private:
   sqlite3* m_database;

@@ -38,8 +38,8 @@ using std::vector;
 using std::set;
 
 const Name Pib::PIB_PREFIX("/localhost/pib");
-const Name Pib::LOCALHOST_USER_PREFIX("/localhost/pib/user");
 const Name Pib::EMPTY_SIGNER_NAME;
+const name::Component Pib::MGMT_LABEL("mgmt");
 
 static inline std::tuple<std::string/*type*/, std::string/*location*/>
 parseTpmLocator(const std::string& tpmLocator)
@@ -80,8 +80,9 @@ Pib::Pib(Face& face,
 
 Pib::~Pib()
 {
+  m_face.unsetInterestFilter(m_pibMgmtFilterId);
   m_face.unsetInterestFilter(m_pibPrefixId);
-  m_face.unsetInterestFilter(m_mgmtCertPrefixId);
+
 }
 
 void
@@ -112,9 +113,9 @@ Pib::initializeMgmtCert()
     // If mgmt cert is set, or corresponding private key of the current mgmt cert is missing,
     // generate new mgmt cert
 
-    // key name: /localhost/pib/user/[UserName]/dsk-...
-    Name mgmtKeyName = LOCALHOST_USER_PREFIX;
-    mgmtKeyName.append(m_owner);
+    // key name: /localhost/pib/[UserName]/mgmt/dsk-...
+    Name mgmtKeyName = PIB_PREFIX;
+    mgmtKeyName.append(m_owner).append(MGMT_LABEL);
     std::ostringstream oss;
     oss << "dsk-" << time::toUnixTimestamp(time::system_clock::now()).count();
     mgmtKeyName.append(oss.str());
@@ -180,30 +181,22 @@ Pib::prepareCertificate(const Name& keyName, const KeyParams& keyParams,
 void
 Pib::registerPrefix()
 {
-  // register PIB prefix
+  // register pib prefix
   Name pibPrefix = PIB_PREFIX;
   pibPrefix.append(m_owner);
-  m_pibPrefixId =
-    m_face.setInterestFilter(pibPrefix,
-                             [] (const InterestFilter&, const Interest&) { /* TODO */ },
-                             [] (const Name& name) {},
-                             [] (const Name& name, const string& msg) {
-                               throw Error("cannot register pib prefix");
-                             });
+  m_face.registerPrefix(pibPrefix,
+                        [] (const Name& name) {},
+                        [] (const Name& name, const string& msg) {
+                          throw Error("cannot register pib prefix");
+                        });
 
-  // register prefix for management certificate
-  Name mgmtPrefix = LOCALHOST_USER_PREFIX;
-  mgmtPrefix.append(m_owner).append("KEY");
-  m_mgmtCertPrefixId =
-    m_face.setInterestFilter(mgmtPrefix,
+  // set interest filter for management certificate
+  m_pibMgmtFilterId =
+    m_face.setInterestFilter(Name(pibPrefix).append(MGMT_LABEL),
                              [this] (const InterestFilter&, const Interest& interest) {
                                if (m_mgmtCert != nullptr) {
                                  m_face.put(*m_mgmtCert);
                                }
-                             },
-                             [] (const Name& name) {},
-                             [] (const Name& name, const string& msg) {
-                               throw Error("cannot register management certificate prefix");
                              });
 }
 

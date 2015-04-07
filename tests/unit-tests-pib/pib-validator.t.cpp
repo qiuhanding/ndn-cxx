@@ -57,13 +57,13 @@ BOOST_AUTO_TEST_CASE(Basic)
 {
   PibValidator validator(db);
 
-  Name testUser("/localhost/pib/user/test");
+  Name testUser("/localhost/pib/test/mgmt");
   BOOST_REQUIRE(addIdentity(testUser, RsaKeyParams()));
   Name testUserCertName = m_keyChain.getDefaultCertificateNameForIdentity(testUser);
   shared_ptr<IdentityCertificate> testUserCert = m_keyChain.getCertificate(testUserCertName);
 
   advanceClocks(time::milliseconds(100));
-  Name testUser2("/localhost/pib/user/test2");
+  Name testUser2("/localhost/pib/test2/mgmt");
   BOOST_REQUIRE(addIdentity(testUser2, RsaKeyParams()));
 
   db.updateMgmtCertificate(*testUserCert);

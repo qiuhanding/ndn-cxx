@@ -57,7 +57,7 @@ BOOST_FIXTURE_TEST_SUITE(TestPibDb, PibDbTestFixture)
 
 BOOST_AUTO_TEST_CASE(MgmtTest)
 {
-  Name testUser("/localhost/pib/user/test");
+  Name testUser("/localhost/pib/test/mgmt");
   addIdentity(testUser);
   Name testUserCertName = m_keyChain.getDefaultCertificateNameForIdentity(testUser);
   shared_ptr<IdentityCertificate> testUserCert = m_keyChain.getCertificate(testUserCertName);
@@ -74,7 +74,7 @@ BOOST_AUTO_TEST_CASE(MgmtTest)
   db.setTpmLocator("tpmLocator");
   BOOST_CHECK_EQUAL(db.getTpmLocator(), "tpmLocator");
 
-  Name testUser2("/localhost/pib/user/test2");
+  Name testUser2("/localhost/pib/test2/mgmt");
   addIdentity(testUser2);
   Name testUser2CertName = m_keyChain.getDefaultCertificateNameForIdentity(testUser2);
   shared_ptr<IdentityCertificate> testUser2Cert = m_keyChain.getCertificate(testUser2CertName);

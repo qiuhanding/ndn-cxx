@@ -123,7 +123,7 @@ private:
 
   static const Name EMPTY_SIGNER_NAME;
   static const Name PIB_PREFIX;
-  static const Name LOCALHOST_USER_PREFIX;
+  static const name::Component MGMT_LABEL;
 
   PibDb  m_db;
   std::unique_ptr<SecTpm> m_tpm;
@@ -137,7 +137,7 @@ private:
   util::InMemoryStoragePersistent m_responseCache;
 
   const RegisteredPrefixId* m_pibPrefixId;
-  const RegisteredPrefixId* m_mgmtCertPrefixId;
+  const InterestFilterId* m_pibMgmtFilterId;
 };
 
 } // namespace pib

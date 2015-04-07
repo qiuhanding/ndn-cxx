@@ -91,7 +91,7 @@ BOOST_AUTO_TEST_CASE(InitCertTest1)
 
   auto mgmtCert = pib.getMgmtCert();
   BOOST_CHECK_EQUAL(mgmtCert.getName().getPrefix(-3),
-                    Name("/localhost/pib/user/testUser/KEY"));
+                    Name("/localhost/pib/testUser/mgmt/KEY"));
   BOOST_CHECK_EQUAL(mgmtCert.getName().get(5).toUri().substr(0, 4), "dsk-");
 
   auto mgmtCert2 = pib.getDb().getMgmtCertificate();
@@ -108,7 +108,7 @@ BOOST_AUTO_TEST_CASE(InitCertTest2)
   std::string tpmLocator = m_keyChain.getTpm().getTpmLocator();
   owner = "testUser";
 
-  Name testUser("/localhost/pib/user/testUser");
+  Name testUser("/localhost/pib/testUser/mgmt");
   addIdentity(testUser);
   Name testUserCertName = m_keyChain.getDefaultCertificateNameForIdentity(testUser);
   shared_ptr<IdentityCertificate> testUserCert = m_keyChain.getCertificate(testUserCertName);
@@ -135,14 +135,14 @@ BOOST_AUTO_TEST_CASE(InitCertTest3)
   std::string tpmLocator = m_keyChain.getTpm().getTpmLocator();
   owner = "testUser";
 
-  Name testUser("/localhost/pib/user/testUser");
+  Name testUser("/localhost/pib/testUser/mgmt");
   addIdentity(testUser);
   Name testUserCertName = m_keyChain.getDefaultCertificateNameForIdentity(testUser);
   shared_ptr<IdentityCertificate> testUserCert = m_keyChain.getCertificate(testUserCertName);
 
   Pib pib1(*face, dbDir, tpmLocator, owner);
   BOOST_CHECK_EQUAL(pib1.getMgmtCert().getName().getPrefix(-3),
-                    Name("/localhost/pib/user/testUser/KEY"));
+                    Name("/localhost/pib/testUser/mgmt/KEY"));
 
   PibDb db(tmpPath.string());
   db.updateMgmtCertificate(*testUserCert);
@@ -154,7 +154,7 @@ BOOST_AUTO_TEST_CASE(InitCertTest3)
   Pib pib3(*face, dbDir, tpmLocator, owner);
   BOOST_CHECK(pib3.getMgmtCert().getName() != testUserCertName);
   BOOST_CHECK_EQUAL(pib3.getMgmtCert().getName().getPrefix(-3),
-                    Name("/localhost/pib/user/testUser/KEY"));
+                    Name("/localhost/pib/testUser/mgmt/KEY"));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
