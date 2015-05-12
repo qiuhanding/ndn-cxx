@@ -58,6 +58,28 @@ RegexRepeatMatcher::match(const Name& name, size_t offset, size_t len)
 }
 
 void
+RegexRepeatMatcher::derivePattern(std::string& pattern)
+{
+  if (m_matchResult.size() == 0) {
+    m_matchers[0]->derivePattern(pattern);
+    if (m_repeatMax > 1)
+      pattern += m_repeatSym;
+  }
+  else {
+    for (const auto& res : m_matchResult) {
+      pattern += "<" + res.toUri() + ">";
+    }
+  }
+}
+
+void
+RegexRepeatMatcher::clearMatchResult()
+{
+  m_matchResult.clear();
+  m_matchers[0]->clearMatchResult();
+}
+
+void
 RegexRepeatMatcher::compile()
 {
   shared_ptr<RegexMatcher> matcher;
@@ -98,11 +120,13 @@ RegexRepeatMatcher::parseRepetition()
       if ('+' == m_expr[m_indicator]) {
         m_repeatMin = 1;
         m_repeatMax = MAX_REPETITIONS;
+        m_repeatSym = "+";
         return true;
       }
       if ('*' == m_expr[m_indicator]) {
         m_repeatMin = 0;
         m_repeatMax = MAX_REPETITIONS;
+        m_repeatSym = "*";
         return true;
       }
     }
@@ -139,6 +163,9 @@ RegexRepeatMatcher::parseRepetition()
 
       m_repeatMin = min;
       m_repeatMax = max;
+
+      if (max > 1)
+        m_repeatSym = repeatStruct;
 
       return true;
     }

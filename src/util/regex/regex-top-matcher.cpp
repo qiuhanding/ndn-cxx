@@ -23,8 +23,10 @@
 
 #include "regex-backref-manager.hpp"
 #include "regex-pattern-list-matcher.hpp"
+#include "regex-backref-matcher.hpp"
 
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
 
 namespace ndn {
 
@@ -112,6 +114,60 @@ RegexTopMatcher::expand(const std::string& expandStr)
     }
   }
   return result;
+}
+
+std::string
+RegexTopMatcher::inferPattern(const std::vector<Name>& backRefs)
+{
+  if (backRefs.size() != m_backrefManager->size()) {
+    throw Error("Number of names and sub groups does not equal");
+  }
+
+  clearMatchResult();
+
+  size_t index = 0;
+  for (const auto& name : backRefs) {
+    auto backrefMatcher =
+      static_pointer_cast<RegexBackrefMatcher>(m_backrefManager->getBackref(index));
+    if (name.empty()) {
+      index++;
+      continue;
+    }
+    std::vector<name::Component> oldResult;
+    oldResult = backrefMatcher->getMatchResult();
+    bool res = backrefMatcher->match(name, 0, name.size());
+    if (!res)
+      throw Error("Name does not match pattern");
+
+    std::vector<name::Component> newResult;
+    newResult = backrefMatcher->getMatchResult();
+
+    if (oldResult.size() != 0) {
+      for (size_t i = 0; i < oldResult.size(); i++) {
+        if (oldResult[i] != newResult[i])
+          throw Error("There are inconsistency in the input!");
+      }
+    }
+    index++;
+  }
+
+  std::string res = "";
+  derivePattern(res);
+  return res;
+
+}
+
+void
+RegexTopMatcher::derivePattern(std::string& pattern)
+{
+  m_matcher->derivePattern(pattern);
+}
+
+void
+RegexTopMatcher::clearMatchResult()
+{
+  m_matchResult.clear();
+  m_matcher->clearMatchResult();
 }
 
 std::string

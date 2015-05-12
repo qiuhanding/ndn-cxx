@@ -42,6 +42,21 @@ RegexBackrefMatcher::lateCompile()
 }
 
 void
+RegexBackrefMatcher::derivePattern(std::string& pattern)
+{
+  for(const auto& res : m_matchResult) {
+    pattern += "<" + res.toUri() + ">";
+  }
+}
+
+void
+RegexBackrefMatcher::clearMatchResult()
+{
+  m_matchResult.clear();
+  m_matchers[0]->clearMatchResult();
+}
+
+void
 RegexBackrefMatcher::compile()
 {
   if (m_expr.size() < 2)

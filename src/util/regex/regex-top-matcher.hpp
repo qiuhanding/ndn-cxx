@@ -48,8 +48,17 @@ public:
   virtual Name
   expand(const std::string& expand = "");
 
+  virtual void
+  derivePattern(std::string& pattern) NDN_CXX_DECL_FINAL;
+
+  virtual void
+  clearMatchResult() NDN_CXX_DECL_FINAL;
+
   static shared_ptr<RegexTopMatcher>
   fromName(const Name& name);
+
+  std::string
+  inferPattern(const std::vector<Name>& backRefs);
 
 protected:
   virtual void

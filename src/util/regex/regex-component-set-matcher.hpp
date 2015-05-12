@@ -47,6 +47,12 @@ public:
   virtual bool
   match(const Name& name, size_t offset, size_t len = 1) NDN_CXX_DECL_FINAL;
 
+  virtual void
+  derivePattern(std::string& pattern) NDN_CXX_DECL_FINAL;
+
+  virtual void
+  clearMatchResult() NDN_CXX_DECL_FINAL;
+
 protected:
   /**
    * @brief Compile the regular expression to generate the more matchers when necessary

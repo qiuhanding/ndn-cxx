@@ -57,6 +57,12 @@ RegexMatcher::match(const Name& name, size_t offset, size_t len)
   return result;
 }
 
+void
+RegexMatcher::clearMatchResult()
+{
+  m_matchResult.clear();
+}
+
 bool
 RegexMatcher::recursiveMatch(size_t matcherNo, const Name& name, size_t offset, size_t len)
 {

@@ -38,6 +38,23 @@ RegexPatternListMatcher::~RegexPatternListMatcher()
 }
 
 void
+RegexPatternListMatcher::derivePattern(std::string& pattern)
+{
+  for (const auto& matcher:m_matchers) {
+    matcher->derivePattern(pattern);
+  }
+}
+
+void
+RegexPatternListMatcher::clearMatchResult()
+{
+  m_matchResult.clear();
+  for (const auto& matcher:m_matchers) {
+    matcher->clearMatchResult();
+  }
+}
+
+void
 RegexPatternListMatcher::compile()
 {
   size_t len = m_expr.size();

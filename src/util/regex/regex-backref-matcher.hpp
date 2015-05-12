@@ -39,6 +39,12 @@ public:
   void
   lateCompile();
 
+  virtual void
+  derivePattern(std::string& pattern) NDN_CXX_DECL_FINAL;
+
+  virtual void
+  clearMatchResult() NDN_CXX_DECL_FINAL;
+
 protected:
   virtual void
   compile() NDN_CXX_DECL_FINAL;

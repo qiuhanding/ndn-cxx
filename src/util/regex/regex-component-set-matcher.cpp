@@ -64,6 +64,23 @@ RegexComponentSetMatcher::match(const Name& name, size_t offset, size_t len)
 }
 
 void
+RegexComponentSetMatcher::derivePattern(std::string& pattern)
+{
+  for (const auto& comp : m_components) {
+    comp->derivePattern(pattern);
+  }
+}
+
+void
+RegexComponentSetMatcher::clearMatchResult()
+{
+  m_matchResult.clear();
+  for (const auto& comp : m_components) {
+    comp->clearMatchResult();
+  }
+}
+
+void
 RegexComponentSetMatcher::compile()
 {
   if (m_expr.size() < 2)

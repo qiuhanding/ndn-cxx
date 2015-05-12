@@ -61,6 +61,12 @@ public:
   virtual bool
   match(const Name& name, size_t offset, size_t len);
 
+  virtual void
+  clearMatchResult();
+
+  virtual void
+  derivePattern(std::string& pattern) = 0;
+
   /**
    * @brief get the matched name components
    * @returns the matched name components

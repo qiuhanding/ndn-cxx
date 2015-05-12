@@ -435,6 +435,64 @@ BOOST_AUTO_TEST_CASE(TopMatcherAdvanced)
   BOOST_CHECK_EQUAL(cm->expand(), Name("/ndn/edu/ucla/yingdi/mac/"));
 }
 
+BOOST_AUTO_TEST_CASE(PatternInference)
+{
+  shared_ptr<Regex> cm = make_shared<Regex>("<ndn>(<>*)<DNS>(<>*)<>*");
+  std::vector<Name> names;
+  names.push_back(Name("/edu/ucla/qiuhan"));
+  names.push_back(Name("/mac/temp"));
+  BOOST_CHECK_EQUAL(cm->inferPattern(names), "<ndn><edu><ucla><qiuhan><DNS><mac><temp><>*");
+
+  cm = make_shared<Regex>("<ndn>((<>(<>))(<>))<DNS>(<>*)(<>)<>*");
+  names.clear();
+  names.push_back(Name("/edu/ucla/qiuhan"));
+  names.push_back(Name("/edu/ucla"));
+  names.push_back(Name("/ucla"));
+  names.push_back(Name("/qiuhan"));
+  names.push_back(Name("/mac/temp"));
+  names.push_back(Name());
+  BOOST_CHECK_EQUAL(cm->inferPattern(names), "<ndn><edu><ucla><qiuhan><DNS><mac><temp><>*");
+
+  // number of arguments does not match the number of sub groups
+  cm = make_shared<Regex>("<ndn>((<>(<>))(<>))<DNS>(<>*)(<>)<>*");
+  names.clear();
+  names.push_back(Name("/edu/ucla/qiuhan"));
+  names.push_back(Name("/edu/ucla"));
+  names.push_back(Name("/ucla"));
+  names.push_back(Name("/qiuhan"));
+  names.push_back(Name("/mac/temp"));
+  BOOST_CHECK_THROW(cm->inferPattern(names), RegexMatcher::Error);
+
+  // there is inconsistency in the argument
+  cm = make_shared<Regex>("<ndn>((<>(<>))(<>))<DNS>(<>*)");
+  names.clear();
+  names.push_back(Name("/edu/ucla/qiuhan"));
+  names.push_back(Name("/edu/ucla"));
+  names.push_back(Name("/ucla"));
+  names.push_back(Name("/other"));
+  names.push_back(Name("/mac/temp"));
+  BOOST_CHECK_THROW(cm->inferPattern(names), RegexMatcher::Error);
+
+  // name does not match the pattern
+  cm = make_shared<Regex>("<ndn>((<><>)(<>))<DNS>(<>*)");
+  names.clear();
+  names.push_back(Name("/edu/ucla/qiuhan/more"));
+  names.push_back(Name("/edu/ucla"));
+  names.push_back(Name("/edu"));
+  names.push_back(Name("/qiuhan/more"));
+  names.push_back(Name("/mac/temp"));
+  BOOST_CHECK_THROW(cm->inferPattern(names), RegexMatcher::Error);
+
+  cm = make_shared<Regex>("<ndn><ucla>(<ab*c>)");
+  names.clear();
+  names.push_back(Name("/abbc"));
+  BOOST_CHECK_EQUAL(cm->inferPattern(names), "<ndn><ucla><abbc>");
+  names.clear();
+  names.push_back(Name("/abcd"));
+  BOOST_CHECK_THROW(cm->inferPattern(names), RegexMatcher::Error);
+
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 } // namespace tests

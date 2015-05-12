@@ -61,6 +61,20 @@ RegexComponentMatcher::match(const Name& name, size_t offset, size_t len)
 }
 
 void
+RegexComponentMatcher::derivePattern(std::string& pattern)
+{
+  if (m_matchResult.size() == 0)
+    pattern += "<" + m_expr + ">";
+  else {
+    pattern += "<";
+    for (const auto& result : m_matchResult) {
+      pattern += result.toUri();
+    }
+    pattern += ">";
+  }
+}
+
+void
 RegexComponentMatcher::compile()
 {
 }
