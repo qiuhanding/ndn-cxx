@@ -22,10 +22,7 @@
 #ifndef NDN_UTIL_REGEX_REGEX_COMPONENT_MATCHER_HPP
 #define NDN_UTIL_REGEX_REGEX_COMPONENT_MATCHER_HPP
 
-#include <boost/regex.hpp>
-
 #include "regex-matcher.hpp"
-#include "regex-pseudo-matcher.hpp"
 
 namespace ndn {
 
@@ -58,9 +55,6 @@ protected:
 
 private:
   bool m_isExactMatch;
-  boost::regex m_componentRegex;
-  std::vector<shared_ptr<RegexPseudoMatcher> > m_pseudoMatchers;
-
 };
 
 } // namespace ndn

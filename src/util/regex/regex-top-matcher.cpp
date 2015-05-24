@@ -31,10 +31,8 @@ namespace ndn {
 RegexTopMatcher::RegexTopMatcher(const std::string& expr, const std::string& expand)
   : RegexMatcher(expr, EXPR_TOP)
   , m_expand(expand)
-  , m_isSecondaryUsed(false)
 {
-  m_primaryBackrefManager = make_shared<RegexBackrefManager>();
-  m_secondaryBackrefManager = make_shared<RegexBackrefManager>();
+  m_backrefManager = make_shared<RegexBackrefManager>();
   compile();
 }
 
@@ -47,45 +45,23 @@ RegexTopMatcher::compile()
 {
   std::string expr = m_expr;
 
-  if ('$' != expr[expr.size() - 1])
-    expr = expr + "<.*>*";
-  else
-    expr = expr.substr(0, expr.size() - 1);
-
-  if ('^' != expr[0]) {
-    m_secondaryMatcher = make_shared<RegexPatternListMatcher>(
-      "<.*>*" + expr,
-      m_secondaryBackrefManager);
-  }
-  else {
-    expr = expr.substr(1, expr.size() - 1);
-  }
-
   // On OSX 10.9, boost, and C++03 the following doesn't work without ndn::
   // because the argument-dependent lookup prefers STL to boost
-  m_primaryMatcher = ndn::make_shared<RegexPatternListMatcher>(expr,
-                                                               m_primaryBackrefManager);
+  m_matcher = ndn::make_shared<RegexPatternListMatcher>(expr,
+                                                        m_backrefManager);
 }
 
 bool
 RegexTopMatcher::match(const Name& name)
 {
-  m_isSecondaryUsed = false;
-
   m_matchResult.clear();
 
-  if (m_primaryMatcher->match(name, 0, name.size())) {
-    m_matchResult = m_primaryMatcher->getMatchResult();
+  if (m_matcher->match(name, 0, name.size())) {
+    m_matchResult = m_matcher->getMatchResult();
     return true;
   }
-  else {
-    if (static_cast<bool>(m_secondaryMatcher) && m_secondaryMatcher->match(name, 0, name.size())) {
-      m_matchResult = m_secondaryMatcher->getMatchResult();
-      m_isSecondaryUsed = true;
-      return true;
-    }
+  else
     return false;
-  }
 }
 
 bool
@@ -99,10 +75,7 @@ RegexTopMatcher::expand(const std::string& expandStr)
 {
   Name result;
 
-  auto backrefManager =
-    (m_isSecondaryUsed ? m_secondaryBackrefManager : m_primaryBackrefManager);
-
-  size_t backrefNo = backrefManager->size();
+  size_t backrefNo = m_backrefManager->size();
 
   std::string expand;
 
@@ -128,9 +101,9 @@ RegexTopMatcher::expand(const std::string& expandStr)
       }
       else if (index <= backrefNo) {
         std::vector<name::Component>::const_iterator it =
-          backrefManager->getBackref(index - 1)->getMatchResult().begin();
+          m_backrefManager->getBackref(index - 1)->getMatchResult().begin();
         std::vector<name::Component>::const_iterator end =
-          backrefManager->getBackref(index - 1)->getMatchResult().end();
+          m_backrefManager->getBackref(index - 1)->getMatchResult().end();
         for (; it != end; it++)
           result.append(*it);
       }
@@ -184,18 +157,15 @@ RegexTopMatcher::getItemFromExpand(const std::string& expand, size_t& offset)
 }
 
 shared_ptr<RegexTopMatcher>
-RegexTopMatcher::fromName(const Name& name, bool hasAnchor)
+RegexTopMatcher::fromName(const Name& name)
 {
-  std::string regexStr("^");
+  std::string regexStr("");
 
   for (const auto& comp : name) {
     regexStr.append("<");
     regexStr.append(convertSpecialChar(comp.toUri()));
     regexStr.append(">");
   }
-
-  if (hasAnchor)
-    regexStr.append("$");
 
   // On OSX 10.9, boost, and C++03 the following doesn't work without ndn::
   // because the argument-dependent lookup prefers STL to boost

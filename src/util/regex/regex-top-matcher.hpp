@@ -49,7 +49,7 @@ public:
   expand(const std::string& expand = "");
 
   static shared_ptr<RegexTopMatcher>
-  fromName(const Name& name, bool hasAnchor=false);
+  fromName(const Name& name);
 
 protected:
   virtual void
@@ -64,11 +64,8 @@ private:
 
 private:
   const std::string m_expand;
-  shared_ptr<RegexPatternListMatcher> m_primaryMatcher;
-  shared_ptr<RegexPatternListMatcher> m_secondaryMatcher;
-  shared_ptr<RegexBackrefManager> m_primaryBackrefManager;
-  shared_ptr<RegexBackrefManager> m_secondaryBackrefManager;
-  bool m_isSecondaryUsed;
+  shared_ptr<RegexPatternListMatcher> m_matcher;
+  shared_ptr<RegexBackrefManager> m_backrefManager;
 };
 
 } // namespace ndn

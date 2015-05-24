@@ -56,15 +56,11 @@ BOOST_AUTO_TEST_CASE(ComponentMatcher)
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 0);
 
   backRef = make_shared<RegexBackrefManager>();
-  cm = make_shared<RegexComponentMatcher>("(c+)\\.(cd)", backRef);
-  res = cm->match(Name("/ccc.cd/b/"), 0, 1);
+  cm = make_shared<RegexComponentMatcher>("", backRef);
+  res = cm->match(Name("/ccc/b/"), 0, 1);
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 1);
-  BOOST_CHECK_EQUAL(cm->getMatchResult()[0].toUri(), string("ccc.cd"));
-
-  BOOST_REQUIRE_EQUAL(backRef->size(), 2);
-  BOOST_CHECK_EQUAL(backRef->getBackref(0)->getMatchResult()[0].toUri(), string("ccc"));
-  BOOST_CHECK_EQUAL(backRef->getBackref(1)->getMatchResult()[0].toUri(), string("cd"));
+  BOOST_CHECK_EQUAL(cm->getMatchResult()[0].toUri(), string("ccc"));
 }
 
 BOOST_AUTO_TEST_CASE(ComponentSetMatcher)
@@ -137,7 +133,7 @@ BOOST_AUTO_TEST_CASE(RepeatMatcher)
 
 
   backRef = make_shared<RegexBackrefManager>();
-  cm = make_shared<RegexRepeatMatcher>("<.*>*", backRef, 4);
+  cm = make_shared<RegexRepeatMatcher>("<>*", backRef, 2);
   res = cm->match(Name("/a/b/c/d/e/f/"), 0, 6);
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 6);
@@ -368,7 +364,7 @@ BOOST_AUTO_TEST_CASE(PatternListMatcher)
 BOOST_AUTO_TEST_CASE(TopMatcher)
 {
 
-  shared_ptr<RegexTopMatcher> cm = make_shared<RegexTopMatcher>("^<a><b><c>");
+  shared_ptr<RegexTopMatcher> cm = make_shared<RegexTopMatcher>("<a><b><c><>");
   bool res = cm->match(Name("/a/b/c/d"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 4);
@@ -377,7 +373,7 @@ BOOST_AUTO_TEST_CASE(TopMatcher)
   BOOST_CHECK_EQUAL(cm->getMatchResult()[2].toUri(), string("c"));
   BOOST_CHECK_EQUAL(cm->getMatchResult()[3].toUri(), string("d"));
 
-  cm = make_shared<RegexTopMatcher>("<b><c><d>$");
+  cm = make_shared<RegexTopMatcher>("<><b><c><d>");
   res = cm->match(Name("/a/b/c/d"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 4);
@@ -386,7 +382,7 @@ BOOST_AUTO_TEST_CASE(TopMatcher)
   BOOST_CHECK_EQUAL(cm->getMatchResult()[2].toUri(), string("c"));
   BOOST_CHECK_EQUAL(cm->getMatchResult()[3].toUri(), string("d"));
 
-  cm = make_shared<RegexTopMatcher>("^<a><b><c><d>$");
+  cm = make_shared<RegexTopMatcher>("<a><b><c><d>");
   res = cm->match(Name("/a/b/c/d"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 4);
@@ -398,69 +394,44 @@ BOOST_AUTO_TEST_CASE(TopMatcher)
   res = cm->match(Name("/a/b/c/d/e"));
   BOOST_CHECK_EQUAL(res, false);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 0);
-
-  cm = make_shared<RegexTopMatcher>("<a><b><c><d>");
-  res = cm->match(Name("/a/b/c/d"));
-  BOOST_CHECK_EQUAL(res, true);
-  BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 4);
-  BOOST_CHECK_EQUAL(cm->getMatchResult()[0].toUri(), string("a"));
-  BOOST_CHECK_EQUAL(cm->getMatchResult()[1].toUri(), string("b"));
-  BOOST_CHECK_EQUAL(cm->getMatchResult()[2].toUri(), string("c"));
-  BOOST_CHECK_EQUAL(cm->getMatchResult()[3].toUri(), string("d"));
-
-
-  cm = make_shared<RegexTopMatcher>("<b><c>");
-  res = cm->match(Name("/a/b/c/d"));
-  BOOST_CHECK_EQUAL(res, true);
-  BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 4);
-  BOOST_CHECK_EQUAL(cm->getMatchResult()[0].toUri(), string("a"));
-  BOOST_CHECK_EQUAL(cm->getMatchResult()[1].toUri(), string("b"));
-  BOOST_CHECK_EQUAL(cm->getMatchResult()[2].toUri(), string("c"));
-  BOOST_CHECK_EQUAL(cm->getMatchResult()[3].toUri(), string("d"));
 }
 
 BOOST_AUTO_TEST_CASE(TopMatcherAdvanced)
 {
-  shared_ptr<Regex> cm = make_shared<Regex>("^(<.*>*)<.*>");
+  shared_ptr<Regex> cm = make_shared<Regex>("(<>*)<>");
   bool res = cm->match(Name("/n/a/b/c"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 4);
   BOOST_CHECK_EQUAL(cm->expand("\\1"), Name("/n/a/b/"));
 
-  cm = make_shared<Regex>("^(<.*>*)<.*><c>(<.*>)<.*>");
+  cm = make_shared<Regex>("(<>*)<><c>(<>)<>");
   res = cm->match(Name("/n/a/b/c/d/e/"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 6);
   BOOST_CHECK_EQUAL(cm->expand("\\1\\2"), Name("/n/a/d/"));
 
-  cm = make_shared<Regex>("(<.*>*)<.*>$");
-  res = cm->match(Name("/n/a/b/c/"));
-  BOOST_CHECK_EQUAL(res, true);
-  BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 4);
-  BOOST_CHECK_EQUAL(cm->expand("\\1"), Name("/n/a/b/"));
-
-  cm = make_shared<Regex>("<.*>(<.*>*)<.*>$");
+  cm = make_shared<Regex>("<>(<>*)<>");
   res = cm->match(Name("/n/a/b/c/"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 4);
   BOOST_CHECK_EQUAL(cm->expand("\\1"), Name("/a/b/"));
 
-  cm = make_shared<Regex>("<a>(<>*)<>$");
+  cm = make_shared<Regex>("<n><a>(<>*)<>");
   res = cm->match(Name("/n/a/b/c/"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 4);
   BOOST_CHECK_EQUAL(cm->expand("\\1"), Name("/b/"));
 
-  cm = make_shared<Regex>("^<ndn><(.*)\\.(.*)><DNS>(<>*)<>");
-  res = cm->match(Name("/ndn/ucla.edu/DNS/yingdi/mac/ksk-1/"));
+  cm = make_shared<Regex>("<ndn>(<>*)<DNS>(<>*)<>");
+  res = cm->match(Name("/ndn/edu/ucla/DNS/yingdi/mac/ksk-1/"));
   BOOST_CHECK_EQUAL(res, true);
-  BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 6);
-  BOOST_CHECK_EQUAL(cm->expand("<ndn>\\2\\1\\3"), Name("/ndn/edu/ucla/yingdi/mac/"));
+  BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 7);
+  BOOST_CHECK_EQUAL(cm->expand("<ndn>\\1\\2"), Name("/ndn/edu/ucla/yingdi/mac/"));
 
-  cm = make_shared<Regex>("^<ndn><(.*)\\.(.*)><DNS>(<>*)<>", "<ndn>\\2\\1\\3");
-  res = cm->match(Name("/ndn/ucla.edu/DNS/yingdi/mac/ksk-1/"));
+  cm = make_shared<Regex>("<ndn>(<>*)<DNS>(<>*)<>", "<ndn>\\1\\2");
+  res = cm->match(Name("/ndn/edu/ucla/DNS/yingdi/mac/ksk-1/"));
   BOOST_CHECK_EQUAL(res, true);
-  BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 6);
+  BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 7);
   BOOST_CHECK_EQUAL(cm->expand(), Name("/ndn/edu/ucla/yingdi/mac/"));
 }
 

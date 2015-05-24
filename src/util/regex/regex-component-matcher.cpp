@@ -23,18 +23,6 @@
 
 namespace ndn {
 
-// Re: http://www.boost.org/users/history/version_1_56_0.html
-//
-//   Breaking change: corrected behavior of basic_regex<>::mark_count() to match existing
-//   documentation, basic_regex<>::subexpression(n) changed to match, see
-//   https://svn.boost.org/trac/boost/ticket/9227
-static const size_t BOOST_REGEXP_MARK_COUNT_CORRECTION =
-#if BOOST_VERSION < 105600
-                    1;
-#else
-                    0;
-#endif
-
 RegexComponentMatcher::RegexComponentMatcher(const std::string& expr,
                                              shared_ptr<RegexBackrefManager> backrefManager,
                                              bool isExactMatch)
@@ -59,14 +47,8 @@ RegexComponentMatcher::match(const Name& name, size_t offset, size_t len)
   }
 
   if (m_isExactMatch) {
-    boost::smatch subResult;
     std::string targetStr = name.get(offset).toUri();
-    if (boost::regex_match(targetStr, subResult, m_componentRegex)) {
-      for (size_t i = 1;
-           i <= m_componentRegex.mark_count() - BOOST_REGEXP_MARK_COUNT_CORRECTION; i++) {
-        m_pseudoMatchers[i]->resetMatchResult();
-        m_pseudoMatchers[i]->setMatchResult(subResult[i]);
-      }
+    if (targetStr == m_expr) {
       m_matchResult.push_back(name.get(offset));
       return true;
     }
@@ -81,17 +63,6 @@ RegexComponentMatcher::match(const Name& name, size_t offset, size_t len)
 void
 RegexComponentMatcher::compile()
 {
-  m_componentRegex = boost::regex(m_expr);
-
-  m_pseudoMatchers.clear();
-  m_pseudoMatchers.push_back(make_shared<RegexPseudoMatcher>());
-
-  for (size_t i = 1;
-       i <= m_componentRegex.mark_count() - BOOST_REGEXP_MARK_COUNT_CORRECTION; i++) {
-    auto pMatcher = make_shared<RegexPseudoMatcher>();
-    m_pseudoMatchers.push_back(pMatcher);
-    m_backrefManager->pushRef(static_pointer_cast<RegexMatcher>(pMatcher));
-  }
 }
 
 } // namespace ndn

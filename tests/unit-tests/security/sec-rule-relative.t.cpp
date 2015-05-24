@@ -43,8 +43,8 @@ BOOST_AUTO_TEST_CASE(SecRuleRelativeTest)
   Data sha256Data(dataName);
   m_keyChain.signWithSha256(sha256Data);
 
-  SecRuleRelative rule("^(<SecurityTestSecRule><Basic>)$",
-                       "^(<SecurityTestSecRule><Basic>)<><KEY><><>$",
+  SecRuleRelative rule("(<SecurityTestSecRule><Basic>)",
+                       "(<SecurityTestSecRule><Basic>)<><KEY><><>",
                        "==", "\\1", "\\1", true);
   BOOST_CHECK(rule.satisfy(rsaData));
   BOOST_CHECK(rule.satisfy(ecdsaData));

@@ -140,7 +140,7 @@ CommandInterestValidator::addInterestRule(const std::string& regex,
 {
   m_trustAnchorsForInterest[keyName] = publicKey;
   shared_ptr<Regex> interestRegex = make_shared<Regex>(regex);
-  shared_ptr<Regex> signerRegex = Regex::fromName(keyName, true);
+  shared_ptr<Regex> signerRegex = Regex::fromName(keyName);
   m_trustScopeForInterest.push_back(SecRuleSpecific(interestRegex, signerRegex));
 }
 

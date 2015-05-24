@@ -47,9 +47,9 @@ BOOST_AUTO_TEST_CASE(SecRuleSpecificTest)
   m_keyChain.signWithSha256(sha256Data);
 
   shared_ptr<Regex> dataRegex =
-    make_shared<Regex>("^<SecurityTestSecRule><Basic>$");
+    make_shared<Regex>("<SecurityTestSecRule><Basic>");
   shared_ptr<Regex> signerRegex =
-    make_shared<Regex>("^<SecurityTestSecRule><Basic><><KEY><><>$");
+    make_shared<Regex>("<SecurityTestSecRule><Basic><><KEY><><>");
 
   SecRuleSpecific rule(dataRegex, signerRegex);
   BOOST_CHECK(rule.satisfy(rsaData));

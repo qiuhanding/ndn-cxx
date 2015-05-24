@@ -253,7 +253,7 @@ BOOST_AUTO_TEST_CASE(CustomizedCheckerTest2)
 
   shared_ptr<RegexKeyLocatorNameChecker> keyLocatorCheckerRegex1 =
     make_shared<RegexKeyLocatorNameChecker>(
-      Regex("^<SecurityTestConfChecker><CustomizedCheckerTest2>"));
+      Regex("<SecurityTestConfChecker><CustomizedCheckerTest2><>*"));
   CustomizedChecker checker1(tlv::SignatureSha256WithRsa, keyLocatorCheckerRegex1);
 
   result = checker1.check(*data1,
@@ -309,7 +309,7 @@ BOOST_AUTO_TEST_CASE(CustomizedCheckerTest3)
 
   shared_ptr<RegexKeyLocatorNameChecker> keyLocatorCheckerRegex1 =
     make_shared<RegexKeyLocatorNameChecker>(
-      Regex("^<SecurityTestConfChecker><CustomizedCheckerTest3>"));
+      Regex("<SecurityTestConfChecker><CustomizedCheckerTest3><>*"));
   CustomizedChecker checker1(tlv::SignatureSha256WithEcdsa, keyLocatorCheckerRegex1);
 
   result = checker1.check(*data1,

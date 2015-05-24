@@ -74,8 +74,8 @@ RegexPatternListMatcher::extractPattern(size_t index, size_t* next)
       m_matchers.push_back(matcher);
     }
     else
-      m_matchers.push_back(make_shared<RegexRepeatMatcher>(m_expr.substr(start, end - start),
-                                                           m_backrefManager, indicator - start));
+      throw Error("Does not allow repetition for subgroups");
+
     break;
 
   case '<':
