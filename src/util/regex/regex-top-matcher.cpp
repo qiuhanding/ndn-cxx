@@ -90,7 +90,7 @@ RegexTopMatcher::expand(const std::string& expandStr)
     if (item[0] == '<') {
       result.append(item.substr(1, item.size() - 2));
     }
-    if (item[0] == '\\') {
+    if (item[0] == '$') {
       size_t index = boost::lexical_cast<size_t>(item.substr(1, item.size() - 1));
 
       if (0 == index) {
@@ -119,7 +119,7 @@ RegexTopMatcher::getItemFromExpand(const std::string& expand, size_t& offset)
 {
   size_t begin = offset;
 
-  if (expand[offset] == '\\') {
+  if (expand[offset] == '$') {
     offset++;
     if (offset >= expand.size())
       throw Error("wrong format of expand string!");

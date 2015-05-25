@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(SecRuleRelativeTest)
 
   SecRuleRelative rule("(<SecurityTestSecRule><Basic>)",
                        "(<SecurityTestSecRule><Basic>)<><KEY><><>",
-                       "==", "\\1", "\\1", true);
+                       "==", "$1", "$1", true);
   BOOST_CHECK(rule.satisfy(rsaData));
   BOOST_CHECK(rule.satisfy(ecdsaData));
   BOOST_CHECK_EQUAL(rule.satisfy(sha256Data), false);

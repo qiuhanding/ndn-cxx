@@ -402,33 +402,33 @@ BOOST_AUTO_TEST_CASE(TopMatcherAdvanced)
   bool res = cm->match(Name("/n/a/b/c"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 4);
-  BOOST_CHECK_EQUAL(cm->expand("\\1"), Name("/n/a/b/"));
+  BOOST_CHECK_EQUAL(cm->expand("$1"), Name("/n/a/b/"));
 
   cm = make_shared<Regex>("(<>*)<><c>(<>)<>");
   res = cm->match(Name("/n/a/b/c/d/e/"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 6);
-  BOOST_CHECK_EQUAL(cm->expand("\\1\\2"), Name("/n/a/d/"));
+  BOOST_CHECK_EQUAL(cm->expand("$1$2"), Name("/n/a/d/"));
 
   cm = make_shared<Regex>("<>(<>*)<>");
   res = cm->match(Name("/n/a/b/c/"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 4);
-  BOOST_CHECK_EQUAL(cm->expand("\\1"), Name("/a/b/"));
+  BOOST_CHECK_EQUAL(cm->expand("$1"), Name("/a/b/"));
 
   cm = make_shared<Regex>("<n><a>(<>*)<>");
   res = cm->match(Name("/n/a/b/c/"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 4);
-  BOOST_CHECK_EQUAL(cm->expand("\\1"), Name("/b/"));
+  BOOST_CHECK_EQUAL(cm->expand("$1"), Name("/b/"));
 
   cm = make_shared<Regex>("<ndn>(<>*)<DNS>(<>*)<>");
   res = cm->match(Name("/ndn/edu/ucla/DNS/yingdi/mac/ksk-1/"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 7);
-  BOOST_CHECK_EQUAL(cm->expand("<ndn>\\1\\2"), Name("/ndn/edu/ucla/yingdi/mac/"));
+  BOOST_CHECK_EQUAL(cm->expand("<ndn>$1$2"), Name("/ndn/edu/ucla/yingdi/mac/"));
 
-  cm = make_shared<Regex>("<ndn>(<>*)<DNS>(<>*)<>", "<ndn>\\1\\2");
+  cm = make_shared<Regex>("<ndn>(<>*)<DNS>(<>*)<>", "<ndn>$1$2");
   res = cm->match(Name("/ndn/edu/ucla/DNS/yingdi/mac/ksk-1/"));
   BOOST_CHECK_EQUAL(res, true);
   BOOST_CHECK_EQUAL(cm->getMatchResult().size(), 7);

@@ -224,7 +224,7 @@ public:
     : CustomizedChecker(sigType,
         make_shared<HyperKeyLocatorNameChecker>("(<>*)", "\\1",
                                                 "([^<KEY>]*)<KEY>(<>*)<><ID-CERT>",
-                                                "\\1\\2",
+                                                "$1$2",
                                                 KeyLocatorChecker::RELATION_IS_PREFIX_OF))
   {
   }
