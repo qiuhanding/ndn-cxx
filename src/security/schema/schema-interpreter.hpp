@@ -123,7 +123,7 @@ public:
   getCertificate(const std::string& ruleId);
 
   std::vector<std::pair<std::string, std::string> >
-  derivePatternFromDataName(const Name& dataName);
+  deriveSignerPatternFromName(const Name& name);
 
   std::vector<std::pair<std::string, std::string> >
   derivePatternFromRuleId(const std::string& ruleId);

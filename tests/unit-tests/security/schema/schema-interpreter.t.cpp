@@ -281,7 +281,7 @@ BOOST_FIXTURE_TEST_CASE(DeriveSignerPatterns, security::IdentityManagementFixtur
     (boost::filesystem::current_path() / std::string("unit-test-nfd.conf"));
 
   BOOST_REQUIRE_NO_THROW(schema.load(SCHEMA, CONFIG_PATH.native()));
-  std::vector <std::pair <std::string, std::string> >signers1 = schema.derivePatternFromDataName(dataName1);
+  std::vector <std::pair <std::string, std::string> >signers1 = schema.deriveSignerPatternFromName(dataName1);
   BOOST_CHECK_EQUAL(signers1.size(), 2);
   BOOST_CHECK_EQUAL(signers1[0].first, "k1");
   BOOST_CHECK_EQUAL(signers1[0].second, "<ndn><edu><ucla><qiuhan><config><key><>*");

@@ -274,45 +274,59 @@ SchemaInterpreter::getCertificate(const std::string& ruleId)
 }
 
 std::vector<std::pair<std::string, std::string> >
-SchemaInterpreter::derivePatternFromDataName(const Name& dataName)
+SchemaInterpreter::deriveSignerPatternFromName(const Name& name)
 {
   std::vector<std::pair<std::string, std::string> > signerPatterns;
+  RulePtr matchedRule;
   for (const auto& rule : m_dataRules.get<0>()) {
     BOOST_ASSERT(rule != 0);
-    if (!rule->checkName(dataName))
-      continue;
-
-    std::vector<shared_ptr<Signer>> signers = rule->getSigners();
-    for (const auto& signer : signers) {
-      DataRuleContainerById::const_iterator dataItr = m_dataRules.get<1>().find(signer->getId());
-      if (dataItr == m_dataRules.get<1>().end()) {
-        TrustAnchorContainerById::const_iterator anchorItr =
-          m_staticAnchors.get<1>().find(signer->getId());
-        if (anchorItr != m_staticAnchors.get<1>().end()) {
-          std::vector<Name> names;
-          rule->getNameFromBackRefs(signer->getBackRefs(), names);
-          signerPatterns.push_back(std::make_pair(signer->getId(),
-                                                  (*anchorItr)->derivePattern(names)));
-        }
-        else {
-          DynamicTrustAnchorContainerById::const_iterator dynamicAnchorItr =
-            m_dynamicAnchors.get<1>().find(signer->getId());
-          if (dynamicAnchorItr != m_dynamicAnchors.get<1>().end()) {
-            std::vector<Name> names;
-            rule->getNameFromBackRefs(signer->getBackRefs(), names);
-            signerPatterns.push_back(std::make_pair(signer->getId(),
-                                                    (*dynamicAnchorItr)->derivePattern(names)));
-          }
-        }
-      }
-      else {
-        std::vector<Name> names;
-        rule->getNameFromBackRefs(signer->getBackRefs(), names);
-        signerPatterns.push_back(std::make_pair(signer->getId(),
-                                                (*dataItr)->derivePattern(names)));
+    if (rule->checkName(name)) {
+      matchedRule = rule;
+      break;
+    }
+  }
+  if (!static_cast<bool>(matchedRule)) {
+    for (const auto& rule : m_interestRules) {
+      BOOST_ASSERT(rule != 0);
+      if (rule->checkName(name)) {
+        matchedRule = rule;
+        break;
       }
     }
+  }
+
+  if (!static_cast<bool>(matchedRule))
     return signerPatterns;
+
+  std::vector<shared_ptr<Signer>> signers = matchedRule->getSigners();
+  for (const auto& signer : signers) {
+    DataRuleContainerById::const_iterator dataItr = m_dataRules.get<1>().find(signer->getId());
+    if (dataItr == m_dataRules.get<1>().end()) {
+      TrustAnchorContainerById::const_iterator anchorItr =
+        m_staticAnchors.get<1>().find(signer->getId());
+      if (anchorItr != m_staticAnchors.get<1>().end()) {
+        std::vector<Name> names;
+        matchedRule->getNameFromBackRefs(signer->getBackRefs(), names);
+        signerPatterns.push_back(std::make_pair(signer->getId(),
+                                                (*anchorItr)->derivePattern(names)));
+      }
+      else {
+        DynamicTrustAnchorContainerById::const_iterator dynamicAnchorItr =
+          m_dynamicAnchors.get<1>().find(signer->getId());
+        if (dynamicAnchorItr != m_dynamicAnchors.get<1>().end()) {
+          std::vector<Name> names;
+          matchedRule->getNameFromBackRefs(signer->getBackRefs(), names);
+          signerPatterns.push_back(std::make_pair(signer->getId(),
+                                                  (*dynamicAnchorItr)->derivePattern(names)));
+        }
+      }
+    }
+    else {
+      std::vector<Name> names;
+      matchedRule->getNameFromBackRefs(signer->getBackRefs(), names);
+      signerPatterns.push_back(std::make_pair(signer->getId(),
+                                              (*dataItr)->derivePattern(names)));
+    }
   }
   return signerPatterns;
 }
